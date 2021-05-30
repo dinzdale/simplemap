@@ -18,30 +18,29 @@ import org.osmdroid.views.MapView
 class MainActivity : AppCompatActivity() {
     private val REQUEST_PERMISSIONS_REQUEST_CODE = 1;
 
-    lateinit var mapView: MapView
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.map_layout)
         osmSetup()
-        findViewById<MapView>(R.id.map)?.also {
-            mapView = it
-            mapView.setTileSource(TileSourceFactory.MAPNIK);
-            val mapController = mapView.controller
-            mapController.setZoom(3.0)
-            val startPoint = GeoPoint(39.9151, -73.9857);
-            mapController.setCenter(startPoint);
-        }
-        findViewById<ComposeView>(R.id.compose_view)?.apply {
-            setContent {
-                SimpleMapTheme {
-                    // A surface container using the 'background' color from the theme
-                    Surface(color = MaterialTheme.colors.background) {
-                        helloWorld("Hello Y'all")
-                    }
-                }
-            }
-        }
+        setContentView(R.layout.activity_main_layout)
+
+//        findViewById<MapView>(R.id.map)?.also {
+//            mapView = it
+//            mapView.setTileSource(TileSourceFactory.MAPNIK);
+//            val mapController = mapView.controller
+//            mapController.setZoom(3.0)
+//            val startPoint = GeoPoint(39.9151, -73.9857);
+//            mapController.setCenter(startPoint);
+//        }
+//        findViewById<ComposeView>(R.id.compose_view)?.apply {
+//            setContent {
+//                SimpleMapTheme {
+//                    // A surface container using the 'background' color from the theme
+//                    Surface(color = MaterialTheme.colors.background) {
+//                        helloWorld("Hello Y'all")
+//                    }
+//                }
+//            }
+//        }
     }
 
     private fun osmSetup() {
@@ -54,20 +53,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    override fun onPause() {
-        super.onPause()
-        if (::mapView.isInitialized) {
-            mapView.onPause()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (::mapView.isInitialized) {
-            mapView.onResume()
-        }
-    }
 
     @Composable
     fun helloWorld(text: String) {

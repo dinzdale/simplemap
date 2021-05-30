@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/map_nav"
+    app:startDestination="@id/splash_screen_fragment">
+    <fragment
+        android:id="@+id/splash_screen_fragment"
+        android:name="com.gmjproductions.simplemap.SplashScreenFragment"
+        android:label="fragment_splash_screen"
+        tools:layout="@layout/fragment_splash_screen" >
+        <action
+            android:id="@+id/MainMapFragment"
+            app:destination="@id/main_map_fragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/main_map_fragment"
+        android:name="com.gmjproductions.simplemap.MainMapFragment"
+        android:label="fragment_main_map"
+        tools:layout="@layout/fragment_main_map" >
+        <action
+            android:id="@+id/action_main_map_fragment_to_splash_screen_fragment"
+            app:destination="@id/splash_screen_fragment" />
+    </fragment>
+</navigation>
