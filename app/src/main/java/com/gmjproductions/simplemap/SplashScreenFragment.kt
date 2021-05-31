@@ -6,19 +6,24 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ExperimentalComposeApi
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.focusModifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 
@@ -45,6 +50,7 @@ class SplashScreenFragment : Fragment() {
         }
     }
 
+    @ExperimentalComposeApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -53,24 +59,33 @@ class SplashScreenFragment : Fragment() {
             setContent {
                 MaterialTheme {
                     showSplashScreen()
+                    postDelayed({
+                     findNavController().navigate(R.id.main_map_fragment)
+                    },2*1000)
                 }
             }
         }
     }
 
+
+
+    @ExperimentalComposeApi
     @Composable
     fun showSplashScreen() {
-        AndroidView({ context ->
-            AppCompatImageView(context).apply {
-                val drawable = AppCompatResources.getDrawable(context,R.drawable.low_detail_globe)
-                setImageDrawable(drawable)
-            }
-        },Modifier.aspectRatio(1.0f))
-        Column(Modifier.padding(PaddingValues(all = Dp(10f)))) {
-            Button(onClick = {
-                findNavController().navigate(R.id.MainMapFragment)
-            }) {
-                Text(text = "I'm the Splash Screen, click me to go to the Map")
+        Box(Modifier.background(Color.Black)) {
+            AndroidView({ context ->
+                AppCompatImageView(context).apply {
+                    val drawable =
+                        AppCompatResources.getDrawable(context, R.drawable.low_detail_globe)
+                    setImageDrawable(drawable)
+                }
+            },
+                Modifier
+                    .aspectRatio(1.0f)
+                    .align(Alignment.Center))
+            Column(Modifier.align(Alignment.Center)) {
+                Text(text = "SimpleMap",fontSize = TextUnit(36f,TextUnitType.Sp),color = Color.White)
+                Text(text = "            by Gary Jacobs",fontSize = TextUnit(16f,TextUnitType.Sp),color = Color.White)
             }
         }
     }
