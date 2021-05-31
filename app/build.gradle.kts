@@ -8,7 +8,7 @@ android {
     compileSdk = 30
 
     defaultConfig {
-        applicationId = "com.trafficcast.com.gmjproductions.com.gmjproductions.simplemap"
+        applicationId = "com.gmjproductions.simplemap"
         minSdk = 24
         targetSdk = 30
         versionCode = 1

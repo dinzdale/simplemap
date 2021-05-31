@@ -1,20 +1,25 @@
 package com.gmjproductions.simplemap
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.widget.AppCompatImageView
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 
 // TODO: Rename parameter arguments, choose names that match
@@ -54,8 +59,15 @@ class SplashScreenFragment : Fragment() {
             }
         }
     }
+
     @Composable
     fun showSplashScreen() {
+        AndroidView({ context ->
+            AppCompatImageView(context).apply {
+                val drawable = AppCompatResources.getDrawable(context,R.drawable.low_detail_globe)
+                setImageDrawable(drawable)
+            }
+        },Modifier.aspectRatio(1.0f))
         Column(Modifier.padding(PaddingValues(all = Dp(10f)))) {
             Button(onClick = {
                 findNavController().navigate(R.id.MainMapFragment)
@@ -64,6 +76,7 @@ class SplashScreenFragment : Fragment() {
             }
         }
     }
+
     companion object {
         /**
          * Use this factory method to create a new instance of

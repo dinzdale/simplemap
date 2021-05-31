@@ -22,25 +22,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         osmSetup()
         setContentView(R.layout.activity_main_layout)
-
-//        findViewById<MapView>(R.id.map)?.also {
-//            mapView = it
-//            mapView.setTileSource(TileSourceFactory.MAPNIK);
-//            val mapController = mapView.controller
-//            mapController.setZoom(3.0)
-//            val startPoint = GeoPoint(39.9151, -73.9857);
-//            mapController.setCenter(startPoint);
-//        }
-//        findViewById<ComposeView>(R.id.compose_view)?.apply {
-//            setContent {
-//                SimpleMapTheme {
-//                    // A surface container using the 'background' color from the theme
-//                    Surface(color = MaterialTheme.colors.background) {
-//                        helloWorld("Hello Y'all")
-//                    }
-//                }
-//            }
-//        }
     }
 
     private fun osmSetup() {
