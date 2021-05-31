@@ -49,8 +49,6 @@ class SplashScreenFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
                              ): View? {
-        // Inflate the layout for this fragment
-        //return inflater.inflate(R.layout.fragment_splash_screen, container, false)
         return ComposeView(requireContext()).apply {
             setContent {
                 MaterialTheme {
