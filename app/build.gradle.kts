@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.gmjproductions.simplemap"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 30
         versionCode = 1
         versionName = "1.0"
@@ -55,6 +55,8 @@ dependencies {
     implementation("androidx.navigation:navigation-fragment-ktx:2.3.5")
     implementation("androidx.navigation:navigation-ui-ktx:2.3.5")
     implementation("androidx.legacy:legacy-support-v4:1.0.0")
+    implementation("com.github.dinzdale:openchargemap_android_library:-SNAPSHOT")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.3.0")

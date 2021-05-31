@@ -1,6 +1,7 @@
 package com.gmjproductions.simplemap
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,6 +13,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
+import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
+import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
@@ -22,6 +28,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
+import java.util.*
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -34,7 +41,9 @@ private const val ARG_PARAM2 = "param2"
  * create an instance of this fragment.
  */
 class MainMapFragment : Fragment() {
+    private val LogTag = MainMapFragment::class.java.simpleName
     private lateinit var mapView: MapView
+    private lateinit var openChargeMapViewModel: OpenChargeMapViewModel
 
     // TODO: Rename and change types of parameters
     private var param1: String? = null
@@ -52,16 +61,22 @@ class MainMapFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
                              ): View? {
-        // Inflate the layout for this fragment
+        openChargeMapViewModel = ViewModelProvider(
+            this,
+            OpenChargeMapViewModelFactory(application = requireActivity().application)
+                                                  ).get(OpenChargeMapViewModel::class.java)
+
+
         return inflater.inflate(R.layout.map_layout, container, false).apply {
             findViewById<MapView>(R.id.map)?.also {
                 mapView = it
                 mapView.setTileSource(TileSourceFactory.MAPNIK);
                 val mapController = mapView.controller
                 mapController.setZoom(3.0)
-                val startPoint = GeoPoint(39.9151, -73.9857);
-                mapController.setCenter(startPoint);
-                mapView.addMapListener(myMapListener)
+                val startPoint = GeoPoint(39.9151, -73.9857)
+                mapController.setCenter(startPoint)
+                //mapView.addMapListener(myMapListener)
+                initOpenChargeMap()
             }
             findViewById<ComposeView>(R.id.compose_view)?.apply {
                 setContent {
@@ -75,6 +90,63 @@ class MainMapFragment : Fragment() {
             }
         }
 
+    }
+
+    fun initOpenChargeMap() {
+        openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
+        openChargeMapViewModel.dbIntialized.observe(
+            this.viewLifecycleOwner,
+            openChargeMapDBInitializedListener
+                                                   )
+    }
+
+    val openChargeMapDBInitializedListener = Observer<Boolean> {
+        if (it) {
+            openChargeMapViewModel.getChargeTypes()
+            openChargeMapViewModel.getStatusTypes()
+
+            openChargeMapViewModel.getConnectionTypesByName("chademo", "J1772", "CCS")
+            openChargeMapViewModel.getCountriesByName(
+                "united states",
+                "mexico",
+                "canada",
+                "puerto rico",
+                "israel",
+                "france"
+                                                     )
+            openChargeMapViewModel.getOperatorsByName("blink", "chargepoint")
+            openChargeMapViewModel.getUsageTypesByName("public")
+            openChargeMapViewModel.paramsFetched.observe(this) {
+                if (it) {
+                    openChargeMapViewModel.pois.observe(this, openChargeMapPOIObserver)
+                    mapView.addMapListener(myMapListener)
+                }
+            }
+        }
+    }
+
+    fun relocateOpenChargeMapPins(newLocation: GeoPoint, clearPins: Boolean) {
+        if (clearPins) {
+            // clear OCM pins here
+        }
+        // wait for all params to get fetched into model
+        openChargeMapViewModel.getPOIs(
+            newLocation.latitude,
+            newLocation.longitude,
+            countryIDs = openChargeMapViewModel.getCountryIDs(),
+            operatorIDs = openChargeMapViewModel.getOperatorIDs(),
+            connectionTypeIDs = openChargeMapViewModel.getConnectionTypeIDs(),
+            usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
+            statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
+            maxResults = 100
+                                      )
+    }
+
+
+    val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
+        it.ifPresent { list ->
+            Log.d(LogTag, "${list.size} returned")
+        }
     }
 
     @Composable
@@ -117,7 +189,7 @@ class MainMapFragment : Fragment() {
         mapView.overlayManager.removeAll {
             it is Polygon || it is Polyline
         }
-        val polyLine = Polyline().apply{
+        val polyLine = Polyline().apply {
             setPoints(
                 listOf(
                     GeoPoint(box.latNorth, box.lonWest),
@@ -130,10 +202,10 @@ class MainMapFragment : Fragment() {
         }
         val polygon = Polygon().apply {
             val points = listOf(
-                GeoPoint(box.latNorth,box.lonWest),
-                GeoPoint(box.latNorth,box.lonEast),
-                GeoPoint(box.latSouth,box.lonEast),
-                GeoPoint(box.latSouth,box.lonWest)
+                GeoPoint(box.latNorth, box.lonWest),
+                GeoPoint(box.latNorth, box.lonEast),
+                GeoPoint(box.latSouth, box.lonEast),
+                GeoPoint(box.latSouth, box.lonWest)
                                )
             addPoint(points[0])
             fillPaint.color = Color.Green.toArgb()
@@ -145,6 +217,7 @@ class MainMapFragment : Fragment() {
 
 
         mapView.overlayManager.add(polygon)
+        relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
     }
 
     companion object {
