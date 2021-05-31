@@ -15,13 +15,21 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
 import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.sendBlocking
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -42,6 +50,7 @@ private const val ARG_PARAM2 = "param2"
  */
 class MainMapFragment : Fragment() {
     private val LogTag = MainMapFragment::class.java.simpleName
+    private lateinit var  scrollEventsJob : Job
     private lateinit var mapView: MapView
     private lateinit var openChargeMapViewModel: OpenChargeMapViewModel
 
@@ -72,10 +81,9 @@ class MainMapFragment : Fragment() {
                 mapView = it
                 mapView.setTileSource(TileSourceFactory.MAPNIK);
                 val mapController = mapView.controller
-                mapController.setZoom(3.0)
+                mapController.setZoom(10.0)
                 val startPoint = GeoPoint(39.9151, -73.9857)
                 mapController.setCenter(startPoint)
-                //mapView.addMapListener(myMapListener)
                 initOpenChargeMap()
             }
             findViewById<ComposeView>(R.id.compose_view)?.apply {
@@ -119,13 +127,16 @@ class MainMapFragment : Fragment() {
             openChargeMapViewModel.paramsFetched.observe(this) {
                 if (it) {
                     openChargeMapViewModel.pois.observe(this, openChargeMapPOIObserver)
-                    mapView.addMapListener(myMapListener)
+                    listenForMapScrollEvents()
                 }
             }
         }
     }
 
+
     fun relocateOpenChargeMapPins(newLocation: GeoPoint, clearPins: Boolean) {
+        Log.d(LogTag,"relocateOpenChargeMapPins: lat:${newLocation.latitude}, lon:${newLocation.longitude}")
+
         if (clearPins) {
             // clear OCM pins here
         }
@@ -138,7 +149,8 @@ class MainMapFragment : Fragment() {
             connectionTypeIDs = openChargeMapViewModel.getConnectionTypeIDs(),
             usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
             statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
-            maxResults = 100
+            maxResults = 100,
+            radiusInMiles = 30
                                       )
     }
 
@@ -159,6 +171,9 @@ class MainMapFragment : Fragment() {
         if (::mapView.isInitialized) {
             mapView.onPause()
         }
+        if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
+            scrollEventsJob.cancel()
+        }
     }
 
     override fun onResume() {
@@ -168,22 +183,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    private val myMapListener = object : MapAdapter() {
-        override fun onScroll(event: ScrollEvent?): Boolean {
-            mapView.boundingBox.apply {
-                showOpenChargeMapMarkers(this)
-            }
-            return super.onScroll(event)
-        }
-
-        override fun onZoom(event: ZoomEvent?): Boolean {
-            mapView.boundingBox.apply {
-
-            }
-            return super.onZoom(event)
-        }
-    }
-
+/*
     fun showOpenChargeMapMarkers(box: BoundingBox) {
         // remove all polygons first
         mapView.overlayManager.removeAll {
@@ -217,7 +217,42 @@ class MainMapFragment : Fragment() {
 
 
         mapView.overlayManager.add(polygon)
-        relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
+        //scope.sendBlocking(GeoPoint(box.centerLatitude,box.centerLongitude))
+        //relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
+    }
+*/
+    fun listenForMapScrollEvents() {
+        if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
+            scrollEventsJob.cancel()
+        }
+        scrollEventsJob = lifecycleScope.launch {
+            mapScrollFlow()
+                .debounce(2*1000)
+                .collect {
+                    relocateOpenChargeMapPins(GeoPoint(it.centerLatitude,it.centerLongitude),true)
+                }
+        }
+    }
+    private var myMapListener: MapAdapter? = null
+
+    @ExperimentalCoroutinesApi
+    fun mapScrollFlow() = callbackFlow<BoundingBox> {
+        myMapListener = object : MapAdapter() {
+            override fun onScroll(event: ScrollEvent?): Boolean {
+                mapView.boundingBox.apply {
+                    sendBlocking(this)
+                }
+                return super.onScroll(event)
+            }
+        }
+        try {
+            mapView.addMapListener(myMapListener)
+            awaitClose {
+                mapView.removeMapListener(myMapListener)
+            }
+        } catch (ex: Exception) {
+
+        }
     }
 
     companion object {
