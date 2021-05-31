@@ -269,11 +269,12 @@ class MainMapFragment : Fragment() {
         }
         try {
             mapView.addMapListener(myMapListener)
-            awaitClose {
-                mapView.removeMapListener(myMapListener)
-            }
+
         } catch (ex: Exception) {
 
+        }
+        awaitClose {
+            mapView.removeMapListener(myMapListener)
         }
     }
 
