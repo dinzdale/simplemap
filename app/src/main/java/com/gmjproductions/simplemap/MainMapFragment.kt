@@ -1,5 +1,6 @@
 package com.gmjproductions.simplemap
 
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -9,8 +10,6 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
@@ -19,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
 import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
+import com.gmjacobs.productions.openchargemap.utils.MapMarkers
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -34,8 +34,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Polygon
-import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.Marker
 import java.util.*
 
 // TODO: Rename parameter arguments, choose names that match
@@ -50,7 +49,7 @@ private const val ARG_PARAM2 = "param2"
  */
 class MainMapFragment : Fragment() {
     private val LogTag = MainMapFragment::class.java.simpleName
-    private lateinit var  scrollEventsJob : Job
+    private lateinit var scrollEventsJob: Job
     private lateinit var mapView: MapView
     private lateinit var openChargeMapViewModel: OpenChargeMapViewModel
 
@@ -135,7 +134,10 @@ class MainMapFragment : Fragment() {
 
 
     fun relocateOpenChargeMapPins(newLocation: GeoPoint, clearPins: Boolean) {
-        Log.d(LogTag,"relocateOpenChargeMapPins: lat:${newLocation.latitude}, lon:${newLocation.longitude}")
+        Log.d(
+            LogTag,
+            "relocateOpenChargeMapPins: lat:${newLocation.latitude}, lon:${newLocation.longitude}"
+             )
 
         if (clearPins) {
             // clear OCM pins here
@@ -158,6 +160,25 @@ class MainMapFragment : Fragment() {
     val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
         it.ifPresent { list ->
             Log.d(LogTag, "${list.size} returned")
+            if (list.isNotEmpty()) {
+                mapView.overlayManager.removeAll {
+                    it is Marker
+                }
+                list.forEach { poi ->
+                    val nxtMarker = Marker(mapView).apply {
+                        poi.addressInfo?.also { addressInfo ->
+                            icon = BitmapDrawable(
+                                resources,
+                                MapMarkers(requireContext()).getIconForPOI(poi)
+                                                 )
+                            position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
+                            setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_CENTER)
+                        }
+
+                    }
+                    mapView.overlayManager.add(nxtMarker)
+                }
+            }
         }
     }
 
@@ -183,56 +204,57 @@ class MainMapFragment : Fragment() {
         }
     }
 
-/*
-    fun showOpenChargeMapMarkers(box: BoundingBox) {
-        // remove all polygons first
-        mapView.overlayManager.removeAll {
-            it is Polygon || it is Polyline
-        }
-        val polyLine = Polyline().apply {
-            setPoints(
-                listOf(
+    /*
+        fun showOpenChargeMapMarkers(box: BoundingBox) {
+            // remove all polygons first
+            mapView.overlayManager.removeAll {
+                it is Polygon || it is Polyline
+            }
+            val polyLine = Polyline().apply {
+                setPoints(
+                    listOf(
+                        GeoPoint(box.latNorth, box.lonWest),
+                        GeoPoint(box.latNorth, box.lonEast),
+                        GeoPoint(box.latSouth, box.lonEast)
+                          )
+                         )
+                outlinePaint.strokeWidth = 500f
+                outlinePaint.color = Color.Black.toArgb()
+            }
+            val polygon = Polygon().apply {
+                val points = listOf(
                     GeoPoint(box.latNorth, box.lonWest),
                     GeoPoint(box.latNorth, box.lonEast),
-                    GeoPoint(box.latSouth, box.lonEast)
-                      )
-                     )
-            outlinePaint.strokeWidth = 500f
-            outlinePaint.color = Color.Black.toArgb()
-        }
-        val polygon = Polygon().apply {
-            val points = listOf(
-                GeoPoint(box.latNorth, box.lonWest),
-                GeoPoint(box.latNorth, box.lonEast),
-                GeoPoint(box.latSouth, box.lonEast),
-                GeoPoint(box.latSouth, box.lonWest)
-                               )
-            addPoint(points[0])
-            fillPaint.color = Color.Green.toArgb()
-            fillPaint.alpha = 50
-            fillPaint.style = android.graphics.Paint.Style.FILL_AND_STROKE
-            setPoints(points)
-            title = "A sample polygon"
-        }
+                    GeoPoint(box.latSouth, box.lonEast),
+                    GeoPoint(box.latSouth, box.lonWest)
+                                   )
+                addPoint(points[0])
+                fillPaint.color = Color.Green.toArgb()
+                fillPaint.alpha = 50
+                fillPaint.style = android.graphics.Paint.Style.FILL_AND_STROKE
+                setPoints(points)
+                title = "A sample polygon"
+            }
 
 
-        mapView.overlayManager.add(polygon)
-        //scope.sendBlocking(GeoPoint(box.centerLatitude,box.centerLongitude))
-        //relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
-    }
-*/
+            mapView.overlayManager.add(polygon)
+            //scope.sendBlocking(GeoPoint(box.centerLatitude,box.centerLongitude))
+            //relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
+        }
+    */
     fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
         }
         scrollEventsJob = lifecycleScope.launch {
             mapScrollFlow()
-                .debounce(2*1000)
+                .debounce(2 * 1000)
                 .collect {
-                    relocateOpenChargeMapPins(GeoPoint(it.centerLatitude,it.centerLongitude),true)
+                    relocateOpenChargeMapPins(GeoPoint(it.centerLatitude, it.centerLongitude), true)
                 }
         }
     }
+
     private var myMapListener: MapAdapter? = null
 
     @ExperimentalCoroutinesApi
