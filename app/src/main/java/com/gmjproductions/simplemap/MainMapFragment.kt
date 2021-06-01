@@ -224,17 +224,9 @@ class MainMapFragment : Fragment() {
                             infoWindow = MarkerInfoWindow(R.layout.bonuspack_bubble,mapView).apply {
                                 title = addressInfo.title
                                 subDescription = addressInfo.addressLine1
+
                             }
-//                            infoWindow = object: InfoWindow(TextView(requireContext()).apply {
-//                                text = addressInfo.title
-//                            },mapView){
-//                                override fun onOpen(item: Any?) {
-//
-//                                }
-//
-//                                override fun onClose() {
-//                                }
-//                            }
+
                         }
 
                     }
