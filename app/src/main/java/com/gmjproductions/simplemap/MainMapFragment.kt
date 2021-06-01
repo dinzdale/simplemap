@@ -6,11 +6,18 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -74,9 +81,33 @@ class MainMapFragment : Fragment() {
             OpenChargeMapViewModelFactory(application = requireActivity().application)
                                                   ).get(OpenChargeMapViewModel::class.java)
 
+        return ComposeView(requireContext()).apply {
+            setContent {
+                SimpleMapTheme {
+                    // A surface container using the 'background' color from the theme
+                    Surface(color = MaterialTheme.colors.background) {
+                        buildUI()
+                    }
+                }
+            }
+        }
+    }
 
-        return inflater.inflate(R.layout.map_layout, container, false).apply {
-            findViewById<MapView>(R.id.map)?.also {
+
+    @Composable
+    fun buildUI() {
+        ConstraintLayout {
+            val (map,zoomButtonContainer) = createRefs()
+            AndroidView({
+                MapView(it)
+                },
+                Modifier.constrainAs(map) {
+                    start.linkTo(parent.start)
+                    top.linkTo(parent.top)
+                    end.linkTo(parent.end)
+                    bottom.linkTo(parent.bottom)
+                }
+            ) {
                 mapView = it
                 mapView.setTileSource(TileSourceFactory.MAPNIK);
                 val mapController = mapView.controller
@@ -85,19 +116,30 @@ class MainMapFragment : Fragment() {
                 mapController.setCenter(startPoint)
                 initOpenChargeMap()
             }
-            findViewById<ComposeView>(R.id.compose_view)?.apply {
-                setContent {
-                    SimpleMapTheme {
-                        // A surface container using the 'background' color from the theme
-                        Surface(color = MaterialTheme.colors.background) {
-                            helloWorld("Hello Y'all")
-                        }
+            Column(
+                Modifier
+                    .constrainAs(zoomButtonContainer) {
+                        top.linkTo(parent.top, margin = 16.dp)
                     }
+                    .wrapContentSize()) {
+                Button(onClick = {
+                    if (mapView.canZoomIn()) {
+                        mapView.controller.zoomIn()
+                    }
+                }) {
+                    Text("zoom in")
+                }
+                Button(onClick = {
+                    if (mapView.canZoomOut()) {
+                        mapView.controller.zoomOut()
+                    }
+                }) {
+                    Text("zoom out")
                 }
             }
         }
-
     }
+
 
     fun initOpenChargeMap() {
         openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
@@ -172,7 +214,7 @@ class MainMapFragment : Fragment() {
                                 MapMarkers(requireContext()).getIconForPOI(poi)
                                                  )
                             position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
-                            setAnchor(Marker.ANCHOR_CENTER,Marker.ANCHOR_CENTER)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         }
 
                     }
