@@ -6,8 +6,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -26,6 +25,7 @@ import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
 import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
 import com.gmjacobs.productions.openchargemap.utils.MapMarkers
+import com.gmjproductions.simplemap.ui.helpers.BoundingGpsBox
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -38,7 +38,6 @@ import kotlinx.coroutines.launch
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -97,17 +96,17 @@ class MainMapFragment : Fragment() {
     @Composable
     fun buildUI() {
         ConstraintLayout {
-            val (map,zoomButtonContainer) = createRefs()
+            val (map, zoomButtonContainer) = createRefs()
             AndroidView({
                 MapView(it)
-                },
+            },
                 Modifier.constrainAs(map) {
                     start.linkTo(parent.start)
                     top.linkTo(parent.top)
                     end.linkTo(parent.end)
                     bottom.linkTo(parent.bottom)
                 }
-            ) {
+                       ) {
                 mapView = it
                 mapView.setTileSource(TileSourceFactory.MAPNIK);
                 val mapController = mapView.controller
@@ -116,30 +115,34 @@ class MainMapFragment : Fragment() {
                 mapController.setCenter(startPoint)
                 initOpenChargeMap()
             }
-            Column(
-                Modifier
-                    .constrainAs(zoomButtonContainer) {
-                        top.linkTo(parent.top, margin = 16.dp)
-                    }
-                    .wrapContentSize()) {
-                Button(onClick = {
-                    if (mapView.canZoomIn()) {
-                        mapView.controller.zoomIn()
-                    }
-                }) {
-                    Text("zoom in")
-                }
-                Button(onClick = {
-                    if (mapView.canZoomOut()) {
-                        mapView.controller.zoomOut()
-                    }
-                }) {
-                    Text("zoom out")
-                }
-            }
+            buildZoomButtons(Modifier.constrainAs(zoomButtonContainer) {
+                top.linkTo(parent.top, margin = 16.dp)
+                start.linkTo(parent.start,margin = 16.dp)
+            })
+
         }
     }
 
+    @Composable
+    fun buildZoomButtons(modifier: Modifier) {
+        Column(modifier = modifier.size(150.dp)) {
+            Button(onClick = {
+                if (mapView.canZoomIn()) {
+                    mapView.controller.zoomIn()
+                }
+            }, Modifier.fillMaxWidth()) {
+                Text("zoom in")
+            }
+            Spacer(modifier = Modifier.size(10.dp))
+            Button(onClick = {
+                if (mapView.canZoomOut()) {
+                    mapView.controller.zoomOut()
+                }
+            }, Modifier.fillMaxWidth()) {
+                Text("zoom out")
+            }
+        }
+    }
 
     fun initOpenChargeMap() {
         openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
@@ -246,44 +249,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    /*
-        fun showOpenChargeMapMarkers(box: BoundingBox) {
-            // remove all polygons first
-            mapView.overlayManager.removeAll {
-                it is Polygon || it is Polyline
-            }
-            val polyLine = Polyline().apply {
-                setPoints(
-                    listOf(
-                        GeoPoint(box.latNorth, box.lonWest),
-                        GeoPoint(box.latNorth, box.lonEast),
-                        GeoPoint(box.latSouth, box.lonEast)
-                          )
-                         )
-                outlinePaint.strokeWidth = 500f
-                outlinePaint.color = Color.Black.toArgb()
-            }
-            val polygon = Polygon().apply {
-                val points = listOf(
-                    GeoPoint(box.latNorth, box.lonWest),
-                    GeoPoint(box.latNorth, box.lonEast),
-                    GeoPoint(box.latSouth, box.lonEast),
-                    GeoPoint(box.latSouth, box.lonWest)
-                                   )
-                addPoint(points[0])
-                fillPaint.color = Color.Green.toArgb()
-                fillPaint.alpha = 50
-                fillPaint.style = android.graphics.Paint.Style.FILL_AND_STROKE
-                setPoints(points)
-                title = "A sample polygon"
-            }
 
-
-            mapView.overlayManager.add(polygon)
-            //scope.sendBlocking(GeoPoint(box.centerLatitude,box.centerLongitude))
-            //relocateOpenChargeMapPins(GeoPoint(box.centerLatitude, box.centerLongitude), true)
-        }
-    */
     fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
@@ -292,7 +258,7 @@ class MainMapFragment : Fragment() {
             mapScrollFlow()
                 .debounce(2 * 1000)
                 .collect {
-                    relocateOpenChargeMapPins(GeoPoint(it.centerLatitude, it.centerLongitude), true)
+                    relocateOpenChargeMapPins(GeoPoint(it.center.first, it.center.second), true)
                 }
         }
     }
@@ -300,11 +266,11 @@ class MainMapFragment : Fragment() {
     private var myMapListener: MapAdapter? = null
 
     @ExperimentalCoroutinesApi
-    fun mapScrollFlow() = callbackFlow<BoundingBox> {
+    fun mapScrollFlow() = callbackFlow<BoundingGpsBox> {
         myMapListener = object : MapAdapter() {
             override fun onScroll(event: ScrollEvent?): Boolean {
                 mapView.boundingBox.apply {
-                    sendBlocking(this)
+                    sendBlocking(this.BoundingGpsBox())
                 }
                 return super.onScroll(event)
             }
