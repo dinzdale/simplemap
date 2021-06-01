@@ -5,5 +5,6 @@ data class BoundingGpsBox(
     val topRight: Pair<Double, Double>,
     val bottomRight: Pair<Double, Double>,
     val bottomLeft: Pair<Double, Double>,
-    val center: Pair<Double, Double>
+    val center: Pair<Double, Double>,
+    val distanceMetersWidth : Double
                          )

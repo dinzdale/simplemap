@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -41,6 +42,8 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.infowindow.InfoWindow
+import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
 
 // TODO: Rename parameter arguments, choose names that match
@@ -96,7 +99,7 @@ class MainMapFragment : Fragment() {
     @Composable
     fun buildUI() {
         ConstraintLayout {
-            val (map, zoomButtonContainer) = createRefs()
+            val (map, zoomBtns) = createRefs()
             AndroidView({
                 MapView(it)
             },
@@ -115,7 +118,7 @@ class MainMapFragment : Fragment() {
                 mapController.setCenter(startPoint)
                 initOpenChargeMap()
             }
-            buildZoomButtons(Modifier.constrainAs(zoomButtonContainer) {
+            buildZoomButtons(Modifier.constrainAs(zoomBtns) {
                 top.linkTo(parent.top, margin = 16.dp)
                 start.linkTo(parent.start,margin = 16.dp)
             })
@@ -125,7 +128,7 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun buildZoomButtons(modifier: Modifier) {
-        Column(modifier = modifier.size(150.dp)) {
+        Column(modifier = modifier.size(125.dp)) {
             Button(onClick = {
                 if (mapView.canZoomIn()) {
                     mapView.controller.zoomIn()
@@ -218,6 +221,20 @@ class MainMapFragment : Fragment() {
                                                  )
                             position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            infoWindow = MarkerInfoWindow(R.layout.bonuspack_bubble,mapView).apply {
+                                title = addressInfo.title
+                                subDescription = addressInfo.addressLine1
+                            }
+//                            infoWindow = object: InfoWindow(TextView(requireContext()).apply {
+//                                text = addressInfo.title
+//                            },mapView){
+//                                override fun onOpen(item: Any?) {
+//
+//                                }
+//
+//                                override fun onClose() {
+//                                }
+//                            }
                         }
 
                     }
@@ -226,6 +243,7 @@ class MainMapFragment : Fragment() {
             }
         }
     }
+
 
     @Composable
     fun helloWorld(text: String) {
