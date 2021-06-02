@@ -6,8 +6,10 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
@@ -40,9 +42,10 @@ import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.util.constants.GeoConstants
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
 
@@ -111,7 +114,8 @@ class MainMapFragment : Fragment() {
                 }
                        ) {
                 mapView = it
-                mapView.setTileSource(TileSourceFactory.MAPNIK);
+                mapView.setTileSource(TileSourceFactory.MAPNIK)
+                mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 val mapController = mapView.controller
                 mapController.setZoom(10.0)
                 val startPoint = GeoPoint(39.9151, -73.9857)
@@ -120,7 +124,7 @@ class MainMapFragment : Fragment() {
             }
             buildZoomButtons(Modifier.constrainAs(zoomBtns) {
                 top.linkTo(parent.top, margin = 16.dp)
-                start.linkTo(parent.start,margin = 16.dp)
+                start.linkTo(parent.start, margin = 16.dp)
             })
 
         }
@@ -181,26 +185,29 @@ class MainMapFragment : Fragment() {
     }
 
 
-    fun relocateOpenChargeMapPins(newLocation: GeoPoint, clearPins: Boolean) {
+    fun relocateOpenChargeMapPins(box: BoundingGpsBox, clearPins: Boolean) {
         Log.d(
             LogTag,
-            "relocateOpenChargeMapPins: lat:${newLocation.latitude}, lon:${newLocation.longitude}"
+            "relocateOpenChargeMapPins: lat:${box.center.first}, lon:${box.center.second}"
              )
-
         if (clearPins) {
             // clear OCM pins here
+            mapView.overlayManager.removeAll {
+                it is Marker
+            }
+            mapView.invalidate()
         }
         // wait for all params to get fetched into model
         openChargeMapViewModel.getPOIs(
-            newLocation.latitude,
-            newLocation.longitude,
+            box.center.first,
+            box.center.second,
             countryIDs = openChargeMapViewModel.getCountryIDs(),
             operatorIDs = openChargeMapViewModel.getOperatorIDs(),
             connectionTypeIDs = openChargeMapViewModel.getConnectionTypeIDs(),
             usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
             statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
             maxResults = 100,
-            radiusInMiles = 30
+            radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt()
                                       )
     }
 
@@ -209,9 +216,6 @@ class MainMapFragment : Fragment() {
         it.ifPresent { list ->
             Log.d(LogTag, "${list.size} returned")
             if (list.isNotEmpty()) {
-                mapView.overlayManager.removeAll {
-                    it is Marker
-                }
                 list.forEach { poi ->
                     val nxtMarker = Marker(mapView).apply {
                         poi.addressInfo?.also { addressInfo ->
@@ -221,25 +225,21 @@ class MainMapFragment : Fragment() {
                                                  )
                             position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            infoWindow = MarkerInfoWindow(R.layout.bonuspack_bubble,mapView).apply {
-                                title = addressInfo.title
-                                subDescription = addressInfo.addressLine1
+                            infoWindow =
+                                MarkerInfoWindow(R.layout.bonuspack_bubble, mapView).apply {
+                                    title = addressInfo.title
+                                    subDescription = addressInfo.addressLine1
 
-                            }
+                                }
 
                         }
 
                     }
                     mapView.overlayManager.add(nxtMarker)
                 }
+                mapView.invalidate()
             }
         }
-    }
-
-
-    @Composable
-    fun helloWorld(text: String) {
-        Text(text = text)
     }
 
     override fun onPause() {
@@ -266,9 +266,9 @@ class MainMapFragment : Fragment() {
         }
         scrollEventsJob = lifecycleScope.launch {
             mapScrollFlow()
-                .debounce(2 * 1000)
+                .debounce(1 * 1000)
                 .collect {
-                    relocateOpenChargeMapPins(GeoPoint(it.center.first, it.center.second), true)
+                    relocateOpenChargeMapPins(it, true)
                 }
         }
     }
