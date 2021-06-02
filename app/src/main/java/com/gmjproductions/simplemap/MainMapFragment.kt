@@ -6,18 +6,17 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.fragment.app.Fragment
@@ -47,7 +46,6 @@ import org.osmdroid.util.constants.GeoConstants
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
 
@@ -100,7 +98,7 @@ class MainMapFragment : Fragment() {
 
     @Composable fun buildUI() {
         ConstraintLayout {
-            val (map, zoomBtns) = createRefs()
+            val (map, zoomBtns, OSMCreds) = createRefs()
             AndroidView({
                 MapView(it)
             }, Modifier.constrainAs(map) {
@@ -123,6 +121,10 @@ class MainMapFragment : Fragment() {
                 start.linkTo(parent.start, margin = 16.dp)
             })
 
+            showOpenStreetMapCreds(Modifier.constrainAs(OSMCreds) {
+                start.linkTo(zoomBtns.start)
+                bottom.linkTo(parent.bottom, 30.dp)
+            })
         }
     }
 
@@ -144,6 +146,10 @@ class MainMapFragment : Fragment() {
                 Text("zoom out")
             }
         }
+    }
+
+    @Composable fun showOpenStreetMapCreds(modifier: Modifier) {
+        Text("© OpenStreetMap contributors", modifier.wrapContentSize(), color = Color.Companion.DarkGray, fontSize = 14.sp)
     }
 
     fun initOpenChargeMap() {
@@ -254,7 +260,8 @@ class MainMapFragment : Fragment() {
             var previousLocation: GeoPoint? = null
             mapScrollFlow().debounce(1 * 1000).collect { box ->
                 val nxtCenterLocation = GeoPoint(box.center.first, box.center.second)
-                nxtCenterLocation.OnLocationChangeInMeters(box.distanceMetersWidth.toInt()/2, previousLocation) { thresholdMet, distance ->
+                nxtCenterLocation.OnLocationChangeInMeters(box.distanceMetersWidth.toInt() / 2,
+                    previousLocation) { thresholdMet, distance ->
                     if (thresholdMet) {
                         relocateOpenChargeMapPins(box)
                     }
