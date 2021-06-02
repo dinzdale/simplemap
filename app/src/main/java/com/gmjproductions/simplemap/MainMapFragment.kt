@@ -29,6 +29,7 @@ import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactor
 import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
 import com.gmjacobs.productions.openchargemap.utils.MapMarkers
 import com.gmjproductions.simplemap.ui.helpers.BoundingGpsBox
+import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -46,6 +47,7 @@ import org.osmdroid.util.constants.GeoConstants
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
 
@@ -77,19 +79,16 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-                             ): View? {
-        openChargeMapViewModel = ViewModelProvider(
-            this,
-            OpenChargeMapViewModelFactory(application = requireActivity().application)
-                                                  ).get(OpenChargeMapViewModel::class.java)
+    override fun onCreateView(inflater: LayoutInflater,
+                              container: ViewGroup?,
+                              savedInstanceState: Bundle?): View? {
+        openChargeMapViewModel = ViewModelProvider(this,
+            OpenChargeMapViewModelFactory(application = requireActivity().application)).get(
+            OpenChargeMapViewModel::class.java)
 
         return ComposeView(requireContext()).apply {
             setContent {
-                SimpleMapTheme {
-                    // A surface container using the 'background' color from the theme
+                SimpleMapTheme { // A surface container using the 'background' color from the theme
                     Surface(color = MaterialTheme.colors.background) {
                         buildUI()
                     }
@@ -99,20 +98,17 @@ class MainMapFragment : Fragment() {
     }
 
 
-    @Composable
-    fun buildUI() {
+    @Composable fun buildUI() {
         ConstraintLayout {
             val (map, zoomBtns) = createRefs()
             AndroidView({
                 MapView(it)
-            },
-                Modifier.constrainAs(map) {
-                    start.linkTo(parent.start)
-                    top.linkTo(parent.top)
-                    end.linkTo(parent.end)
-                    bottom.linkTo(parent.bottom)
-                }
-                       ) {
+            }, Modifier.constrainAs(map) {
+                start.linkTo(parent.start)
+                top.linkTo(parent.top)
+                end.linkTo(parent.end)
+                bottom.linkTo(parent.bottom)
+            }) {
                 mapView = it
                 mapView.setTileSource(TileSourceFactory.MAPNIK)
                 mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
@@ -130,8 +126,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    @Composable
-    fun buildZoomButtons(modifier: Modifier) {
+    @Composable fun buildZoomButtons(modifier: Modifier) {
         Column(modifier = modifier.size(125.dp)) {
             Button(onClick = {
                 if (mapView.canZoomIn()) {
@@ -153,10 +148,8 @@ class MainMapFragment : Fragment() {
 
     fun initOpenChargeMap() {
         openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
-        openChargeMapViewModel.dbIntialized.observe(
-            this.viewLifecycleOwner,
-            openChargeMapDBInitializedListener
-                                                   )
+        openChargeMapViewModel.dbIntialized.observe(this.viewLifecycleOwner,
+            openChargeMapDBInitializedListener)
     }
 
     val openChargeMapDBInitializedListener = Observer<Boolean> {
@@ -165,14 +158,12 @@ class MainMapFragment : Fragment() {
             openChargeMapViewModel.getStatusTypes()
 
             openChargeMapViewModel.getConnectionTypesByName("chademo", "J1772", "CCS")
-            openChargeMapViewModel.getCountriesByName(
-                "united states",
+            openChargeMapViewModel.getCountriesByName("united states",
                 "mexico",
                 "canada",
                 "puerto rico",
                 "israel",
-                "france"
-                                                     )
+                "france")
             openChargeMapViewModel.getOperatorsByName("blink", "chargepoint")
             openChargeMapViewModel.getUsageTypesByName("public")
             openChargeMapViewModel.paramsFetched.observe(this) {
@@ -185,21 +176,10 @@ class MainMapFragment : Fragment() {
     }
 
 
-    fun relocateOpenChargeMapPins(box: BoundingGpsBox, clearPins: Boolean) {
-        Log.d(
-            LogTag,
-            "relocateOpenChargeMapPins: lat:${box.center.first}, lon:${box.center.second}"
-             )
-        if (clearPins) {
-            // clear OCM pins here
-            mapView.overlayManager.removeAll {
-                it is Marker
-            }
-            mapView.invalidate()
-        }
-        // wait for all params to get fetched into model
-        openChargeMapViewModel.getPOIs(
-            box.center.first,
+    fun relocateOpenChargeMapPins(box: BoundingGpsBox) {
+        Log.d(LogTag,
+            "relocateOpenChargeMapPins: lat:${box.center.first}, lon:${box.center.second}") // wait for all params to get fetched into model
+        openChargeMapViewModel.getPOIs(box.center.first,
             box.center.second,
             countryIDs = openChargeMapViewModel.getCountryIDs(),
             operatorIDs = openChargeMapViewModel.getOperatorIDs(),
@@ -207,22 +187,29 @@ class MainMapFragment : Fragment() {
             usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
             statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
             maxResults = 100,
-            radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt()
-                                      )
+            radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt())
     }
 
 
     val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
         it.ifPresent { list ->
             Log.d(LogTag, "${list.size} returned")
-            if (list.isNotEmpty()) {
+            if (list.isNotEmpty()) { // clear previous pins
+                val markerList = mapView.overlayManager.filter {
+                    it is Marker
+                }.map { it as Marker }
+                if (markerList.isNotEmpty()) {
+                    markerList.forEach {
+                        it.closeInfoWindow()
+                    }
+                    mapView.overlayManager.removeAll(markerList)
+                }
+
                 list.forEach { poi ->
                     val nxtMarker = Marker(mapView).apply {
                         poi.addressInfo?.also { addressInfo ->
-                            icon = BitmapDrawable(
-                                resources,
-                                MapMarkers(requireContext()).getIconForPOI(poi)
-                                                 )
+                            icon = BitmapDrawable(resources,
+                                MapMarkers(requireContext()).getIconForPOI(poi))
                             position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                             infoWindow =
@@ -231,7 +218,6 @@ class MainMapFragment : Fragment() {
                                     subDescription = addressInfo.addressLine1
 
                                 }
-
                         }
 
                     }
@@ -265,18 +251,22 @@ class MainMapFragment : Fragment() {
             scrollEventsJob.cancel()
         }
         scrollEventsJob = lifecycleScope.launch {
-            mapScrollFlow()
-                .debounce(1 * 1000)
-                .collect {
-                    relocateOpenChargeMapPins(it, true)
+            var previousLocation: GeoPoint? = null
+            mapScrollFlow().debounce(1 * 1000).collect { box ->
+                val nxtCenterLocation = GeoPoint(box.center.first, box.center.second)
+                nxtCenterLocation.OnLocationChangeInMeters(box.distanceMetersWidth.toInt()/2, previousLocation) { thresholdMet, distance ->
+                    if (thresholdMet) {
+                        relocateOpenChargeMapPins(box)
+                    }
                 }
+                previousLocation = nxtCenterLocation
+            }
         }
     }
 
     private var myMapListener: MapAdapter? = null
 
-    @ExperimentalCoroutinesApi
-    fun mapScrollFlow() = callbackFlow<BoundingGpsBox> {
+    @ExperimentalCoroutinesApi fun mapScrollFlow() = callbackFlow<BoundingGpsBox> {
         myMapListener = object : MapAdapter() {
             override fun onScroll(event: ScrollEvent?): Boolean {
                 mapView.boundingBox.apply {
@@ -304,14 +294,12 @@ class MainMapFragment : Fragment() {
          * @param param1 Parameter 1.
          * @param param2 Parameter 2.
          * @return A new instance of fragment MainMapFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic fun newInstance(param1: String, param2: String) =
-            MainMapFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
-                }
+         */ // TODO: Rename and change types and number of parameters
+        @JvmStatic fun newInstance(param1: String, param2: String) = MainMapFragment().apply {
+            arguments = Bundle().apply {
+                putString(ARG_PARAM1, param1)
+                putString(ARG_PARAM2, param2)
             }
+        }
     }
 }
