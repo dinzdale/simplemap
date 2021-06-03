@@ -7,11 +7,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -61,6 +61,7 @@ private const val ARG_PARAM2 = "param2"
  */
 class MainMapFragment : Fragment() {
     private val LogTag = MainMapFragment::class.java.simpleName
+    private val uiViewModel by viewModels<UIViewModel>()
     private lateinit var scrollEventsJob: Job
     private lateinit var mapView: MapView
     private lateinit var openChargeMapViewModel: OpenChargeMapViewModel
@@ -88,7 +89,7 @@ class MainMapFragment : Fragment() {
             setContent {
                 SimpleMapTheme { // A surface container using the 'background' color from the theme
                     Surface(color = MaterialTheme.colors.background) {
-                        buildUI()
+                        BuildUI()
                     }
                 }
             }
@@ -96,9 +97,9 @@ class MainMapFragment : Fragment() {
     }
 
 
-    @Composable fun buildUI() {
+    @Composable fun BuildUI() {
         ConstraintLayout {
-            val (map, zoomBtns, OSMCreds) = createRefs()
+            val (map, progress, zoomBtns, OSMCreds) = createRefs()
             AndroidView({
                 MapView(it)
             }, Modifier.constrainAs(map) {
@@ -116,6 +117,12 @@ class MainMapFragment : Fragment() {
                 mapController.setCenter(startPoint)
                 initOpenChargeMap()
             }
+            showStatusBar(Modifier
+                .constrainAs(progress) {
+                    centerTo(parent)
+                }
+                .size(100.dp),uiViewModel = uiViewModel)
+
             buildZoomButtons(Modifier.constrainAs(zoomBtns) {
                 top.linkTo(parent.top, margin = 16.dp)
                 start.linkTo(parent.start, margin = 16.dp)
@@ -150,6 +157,16 @@ class MainMapFragment : Fragment() {
 
     @Composable fun showOpenStreetMapCreds(modifier: Modifier) {
         Text("© OpenStreetMap contributors", modifier.wrapContentSize(), color = Color.Companion.DarkGray, fontSize = 14.sp)
+    }
+
+    @Composable fun showStatusBar(visible:Boolean, modifier: Modifier) {
+        if (visible) {
+            CircularProgressIndicator(modifier)
+        }
+    }
+    @Composable fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
+        val showProgress : Boolean by uiViewModel.showProgressBar.observeAsState(false)
+        showStatusBar(showProgress,modifier)
     }
 
     fun initOpenChargeMap() {
@@ -194,10 +211,12 @@ class MainMapFragment : Fragment() {
             statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
             maxResults = 100,
             radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt())
+        uiViewModel.showProgressBar(true)
     }
 
 
     val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
+       uiViewModel.showProgressBar(false)
         it.ifPresent { list ->
             Log.d(LogTag, "${list.size} returned")
             if (list.isNotEmpty()) { // clear previous pins
@@ -292,6 +311,10 @@ class MainMapFragment : Fragment() {
             mapView.removeMapListener(myMapListener)
         }
     }
+//    @Preview
+//    @Composable
+//    fun showPreview() {
+//    }
 
     companion object {
         /**
@@ -309,4 +332,6 @@ class MainMapFragment : Fragment() {
             }
         }
     }
+
+
 }
