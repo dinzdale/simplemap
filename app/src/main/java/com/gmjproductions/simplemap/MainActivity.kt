@@ -34,17 +34,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    @Composable
-    fun helloWorld(text: String) {
-        Text(text = text)
-    }
-
-    @Composable
-    fun showMap(mapView: MapView) {
-
-    }
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,

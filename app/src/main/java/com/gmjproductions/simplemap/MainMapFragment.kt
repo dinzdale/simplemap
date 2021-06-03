@@ -164,9 +164,10 @@ class MainMapFragment : Fragment() {
             CircularProgressIndicator(modifier)
         }
     }
+
     @Composable fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
-        val showProgress : Boolean by uiViewModel.showProgressBar.observeAsState(false)
-        showStatusBar(showProgress,modifier)
+        val showProgress: Boolean by uiViewModel.showProgressBar.observeAsState(false)
+        showStatusBar(showProgress, modifier)
     }
 
     fun initOpenChargeMap() {
