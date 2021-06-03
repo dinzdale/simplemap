@@ -193,16 +193,20 @@ class MainMapFragment : Fragment() {
             openChargeMapViewModel.paramsFetched.observe(this) {
                 if (it) {
                     openChargeMapViewModel.pois.observe(this, openChargeMapPOIObserver)
+
                     listenForMapScrollEvents()
+
+                    // show initial charging stations
+                    relocateOpenChargeMapMarkers(mapView.boundingBox.BoundingGpsBox())
                 }
             }
         }
     }
 
 
-    fun relocateOpenChargeMapPins(box: BoundingGpsBox) {
+    fun relocateOpenChargeMapMarkers(box: BoundingGpsBox) {
         Log.d(LogTag,
-            "relocateOpenChargeMapPins: lat:${box.center.first}, lon:${box.center.second}") // wait for all params to get fetched into model
+            "relocateOpenChargeMapMarkers: lat:${box.center.first}, lon:${box.center.second}") // wait for all params to get fetched into model
         openChargeMapViewModel.getPOIs(box.center.first,
             box.center.second,
             countryIDs = openChargeMapViewModel.getCountryIDs(),
@@ -283,7 +287,7 @@ class MainMapFragment : Fragment() {
                 nxtCenterLocation.OnLocationChangeInMeters(box.distanceMetersWidth.toInt() / 2,
                     previousLocation) { thresholdMet, distance ->
                     if (thresholdMet) {
-                        relocateOpenChargeMapPins(box)
+                        relocateOpenChargeMapMarkers(box)
                     }
                 }
                 previousLocation = nxtCenterLocation
