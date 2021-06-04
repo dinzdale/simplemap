@@ -121,7 +121,7 @@ class MainMapFragment : Fragment() {
                 .constrainAs(progress) {
                     centerTo(parent)
                 }
-                .size(100.dp),uiViewModel = uiViewModel)
+                .size(100.dp), uiViewModel = uiViewModel)
 
             buildZoomButtons(Modifier.constrainAs(zoomBtns) {
                 top.linkTo(parent.top, margin = 16.dp)
@@ -133,6 +133,8 @@ class MainMapFragment : Fragment() {
                 bottom.linkTo(parent.bottom, 30.dp)
             })
         }
+        // setup snackbar
+        showSnackBarMessage(uiViewModel = uiViewModel)
     }
 
     @Composable fun buildZoomButtons(modifier: Modifier) {
@@ -156,10 +158,13 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable fun showOpenStreetMapCreds(modifier: Modifier) {
-        Text("© OpenStreetMap contributors", modifier.wrapContentSize(), color = Color.Companion.DarkGray, fontSize = 14.sp)
+        Text("© OpenStreetMap contributors",
+            modifier.wrapContentSize(),
+            color = Color.Companion.DarkGray,
+            fontSize = 14.sp)
     }
 
-    @Composable fun showStatusBar(visible:Boolean, modifier: Modifier) {
+    @Composable fun showStatusBar(visible: Boolean, modifier: Modifier) {
         if (visible) {
             CircularProgressIndicator(modifier)
         }
@@ -168,6 +173,21 @@ class MainMapFragment : Fragment() {
     @Composable fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
         val showProgress: Boolean by uiViewModel.showProgressBar.observeAsState(false)
         showStatusBar(showProgress, modifier)
+    }
+
+    @Composable fun showSnackBarMessage(uiViewModel: UIViewModel) {
+        val snackBarMessage: String by uiViewModel.snackbarMessage.observeAsState("")
+        showSnackBarMessage(snackBarMessage)
+    }
+
+    @Composable fun showSnackBarMessage(message: String) {
+        if (message.isNotEmpty()) {
+            Row() {
+                Snackbar() {
+                    Text(text = message)
+                }
+            }
+        }
     }
 
     fun initOpenChargeMap() {
@@ -221,8 +241,8 @@ class MainMapFragment : Fragment() {
 
 
     val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
-       uiViewModel.showProgressBar(false)
-        it.ifPresent { list ->
+        uiViewModel.showProgressBar(false)
+        it.orElse(null)?.also { list ->
             Log.d(LogTag, "${list.size} returned")
             if (list.isNotEmpty()) { // clear previous pins
                 val markerList = mapView.overlayManager.filter {
@@ -254,8 +274,9 @@ class MainMapFragment : Fragment() {
                     mapView.overlayManager.add(nxtMarker)
                 }
                 mapView.invalidate()
+                uiViewModel.showSnackBarMessage("${list.size} pois returned")
             }
-        }
+        }?:uiViewModel.showSnackBarMessage("Unknown network error, sorry. Please try again.")
     }
 
     override fun onPause() {
@@ -315,11 +336,10 @@ class MainMapFragment : Fragment() {
         awaitClose {
             mapView.removeMapListener(myMapListener)
         }
-    }
-//    @Preview
-//    @Composable
-//    fun showPreview() {
-//    }
+    } //    @Preview
+    //    @Composable
+    //    fun showPreview() {
+    //    }
 
     companion object {
         /**
