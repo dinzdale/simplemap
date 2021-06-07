@@ -26,6 +26,7 @@ import androidx.lifecycle.lifecycleScope
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
 import com.gmjacobs.productions.openchargemap.model.poi.PoiItem
+import com.gmjacobs.productions.openchargemap.network.APIResponse
 import com.gmjacobs.productions.openchargemap.utils.MapMarkers
 import com.gmjproductions.simplemap.ui.helpers.BoundingGpsBox
 import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
@@ -132,8 +133,7 @@ class MainMapFragment : Fragment() {
                 start.linkTo(zoomBtns.start)
                 bottom.linkTo(parent.bottom, 30.dp)
             })
-        }
-        // setup snackbar
+        } // setup snackbar
         showSnackBarMessage(uiViewModel = uiViewModel)
     }
 
@@ -240,43 +240,51 @@ class MainMapFragment : Fragment() {
     }
 
 
-    val openChargeMapPOIObserver = Observer<Optional<List<PoiItem>>> {
+    val openChargeMapPOIObserver = Observer<Optional<APIResponse>> {
         uiViewModel.showProgressBar(false)
-        it.orElse(null)?.also { list ->
-            Log.d(LogTag, "${list.size} returned")
-            if (list.isNotEmpty()) { // clear previous pins
-                val markerList = mapView.overlayManager.filter {
-                    it is Marker
-                }.map { it as Marker }
-                if (markerList.isNotEmpty()) {
-                    markerList.forEach {
-                        it.closeInfoWindow()
-                    }
-                    mapView.overlayManager.removeAll(markerList)
-                }
-
-                list.forEach { poi ->
-                    val nxtMarker = Marker(mapView).apply {
-                        poi.addressInfo?.also { addressInfo ->
-                            icon = BitmapDrawable(resources,
-                                MapMarkers(requireContext()).getIconForPOI(poi))
-                            position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                            infoWindow =
-                                MarkerInfoWindow(R.layout.bonuspack_bubble, mapView).apply {
-                                    title = addressInfo.title
-                                    subDescription = addressInfo.addressLine1
-
-                                }
+        it.orElse(null)?.also { response ->
+            when (response) {
+                is APIResponse.Success<*> -> {
+                    val list = (response as APIResponse.Success<List<PoiItem>>).data
+                    Log.d(LogTag, "${list.size} returned")
+                    if (list.isNotEmpty()) { // clear previous pins
+                        val markerList = mapView.overlayManager.filter {
+                            it is Marker
+                        }.map { it as Marker }
+                        if (markerList.isNotEmpty()) {
+                            markerList.forEach {
+                                it.closeInfoWindow()
+                            }
+                            mapView.overlayManager.removeAll(markerList)
                         }
 
+                        list.forEach { poi ->
+                            val nxtMarker = Marker(mapView).apply {
+                                poi.addressInfo?.also { addressInfo ->
+                                    icon = BitmapDrawable(resources,
+                                        MapMarkers(requireContext()).getIconForPOI(poi))
+                                    position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    infoWindow =
+                                        MarkerInfoWindow(R.layout.bonuspack_bubble, mapView).apply {
+                                            title = addressInfo.title
+                                            subDescription = addressInfo.addressLine1
+
+                                        }
+                                }
+
+                            }
+                            mapView.overlayManager.add(nxtMarker)
+                        }
+                        mapView.invalidate()
+                        uiViewModel.showSnackBarMessage("${list.size} pois returned")
                     }
-                    mapView.overlayManager.add(nxtMarker)
                 }
-                mapView.invalidate()
-                uiViewModel.showSnackBarMessage("${list.size} pois returned")
+                is APIResponse.Exception -> {
+                    uiViewModel.showSnackBarMessage(response.message)
+                }
             }
-        }?:uiViewModel.showSnackBarMessage("Unknown network error, sorry. Please try again.")
+        }
     }
 
     override fun onPause() {
@@ -297,7 +305,7 @@ class MainMapFragment : Fragment() {
     }
 
 
-    fun listenForMapScrollEvents() {
+    @ExperimentalCoroutinesApi fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
         }
@@ -336,10 +344,7 @@ class MainMapFragment : Fragment() {
         awaitClose {
             mapView.removeMapListener(myMapListener)
         }
-    } //    @Preview
-    //    @Composable
-    //    fun showPreview() {
-    //    }
+    } //    @Preview //    @Composable //    fun showPreview() { //    }
 
     companion object {
         /**
