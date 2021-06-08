@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.sendBlocking
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
@@ -178,15 +180,19 @@ class MainMapFragment : Fragment() {
     @Composable fun showSnackBarMessage(uiViewModel: UIViewModel) {
         val snackBarMessage: String by uiViewModel.snackbarMessage.observeAsState("")
         showSnackBarMessage(snackBarMessage)
+        LaunchedEffect(snackBarMessage) {
+            delay(3 * 1000)
+            uiViewModel.showSnackBarMessage("")
+        }
     }
 
     @Composable fun showSnackBarMessage(message: String) {
         if (message.isNotEmpty()) {
-            Row() {
-                Snackbar() {
+            Scaffold(backgroundColor = Color.Transparent, bottomBar = @Composable {
+                Snackbar(Modifier.padding(5.dp)) {
                     Text(text = message)
                 }
-            }
+            }) {}
         }
     }
 
@@ -277,8 +283,8 @@ class MainMapFragment : Fragment() {
                             mapView.overlayManager.add(nxtMarker)
                         }
                         mapView.invalidate()
-                        uiViewModel.showSnackBarMessage("${list.size} pois returned")
                     }
+                    uiViewModel.showSnackBarMessage("${list.size} pois found")
                 }
                 is APIResponse.Exception -> {
                     uiViewModel.showSnackBarMessage(response.message)
