@@ -1,5 +1,6 @@
 package com.gmjproductions.simplemap
 
+import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.util.Log
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -254,16 +256,11 @@ class MainMapFragment : Fragment() {
                     val list = (response as APIResponse.Success<List<PoiItem>>).data
                     Log.d(LogTag, "${list.size} returned")
                     if (list.isNotEmpty()) { // clear previous pins
-                        val markerList = mapView.overlayManager.filter {
-                            it is Marker
-                        }.map { it as Marker }
-                        if (markerList.isNotEmpty()) {
-                            markerList.forEach {
-                                it.closeInfoWindow()
-                            }
-                            mapView.overlayManager.removeAll(markerList)
+                        clearClustersAndMarkers()
+                        val markerClusterer = RadiusMarkerClusterer(context).apply {
+                            setIcon(BitmapFactory.decodeResource(resources,
+                                R.drawable.marker_cluster))
                         }
-
                         list.forEach { poi ->
                             val nxtMarker = Marker(mapView).apply {
                                 poi.addressInfo?.also { addressInfo ->
@@ -279,9 +276,10 @@ class MainMapFragment : Fragment() {
                                         }
                                 }
 
-                            }
-                            mapView.overlayManager.add(nxtMarker)
+                            } //mapView.overlayManager.add(nxtMarker)
+                            markerClusterer.add(nxtMarker)
                         }
+                        mapView.overlayManager.add(markerClusterer)
                         mapView.invalidate()
                     }
                     uiViewModel.showSnackBarMessage("${list.size} pois found")
@@ -291,6 +289,22 @@ class MainMapFragment : Fragment() {
                 }
             }
         }
+    }
+
+    fun clearClustersAndMarkers() { // clear clusters
+        mapView.overlayManager.filter {
+            it is RadiusMarkerClusterer
+        }?.apply {
+            mapView.overlayManager.removeAll(this)
+        } // clear markers
+        val markerList = mapView.overlayManager.filter {
+            it is Marker
+        }.map { it as Marker }
+        markerList.forEach {
+            it.closeInfoWindow()
+        }
+        mapView.overlayManager.removeAll(markerList)
+
     }
 
     override fun onPause() {
