@@ -276,7 +276,7 @@ class MainMapFragment : Fragment() {
                                         }
                                 }
 
-                            } //mapView.overlayManager.add(nxtMarker)
+                            }
                             markerClusterer.add(nxtMarker)
                         }
                         mapView.overlayManager.add(markerClusterer)
