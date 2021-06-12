@@ -29,9 +29,12 @@ android {
                          )
         }
     }
-
+    compileOptions {
+        sourceCompatibility = org.gradle.api.JavaVersion.VERSION_1_8
+        targetCompatibility = org.gradle.api.JavaVersion.VERSION_1_8
+    }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = org.gradle.api.JavaVersion.VERSION_1_8.toString()
         useIR = true
     }
     buildFeatures {

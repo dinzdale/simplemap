@@ -106,7 +106,9 @@ class MainMapFragment : Fragment() {
         ConstraintLayout {
             val (map, progress, zoomBtns, OSMCreds) = createRefs()
             AndroidView({
-                MapView(it)
+                MapView(it).apply {
+                    isTilesScaledToDpi = true
+                }
             }, Modifier.constrainAs(map) {
                 start.linkTo(parent.start)
                 top.linkTo(parent.top)
