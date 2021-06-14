@@ -323,6 +323,7 @@ class MainMapFragment : Fragment() {
         super.onResume()
         if (::mapView.isInitialized) {
             mapView.onResume()
+            listenForMapScrollEvents()
         }
     }
 
