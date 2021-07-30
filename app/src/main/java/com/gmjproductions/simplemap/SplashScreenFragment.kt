@@ -20,6 +20,7 @@ import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.ExperimentalUnitApi
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.viewinterop.AndroidView
@@ -50,7 +51,7 @@ class SplashScreenFragment : Fragment() {
         }
     }
 
-    @ExperimentalComposeApi
+    @ExperimentalUnitApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -69,8 +70,7 @@ class SplashScreenFragment : Fragment() {
 
 
 
-    @ExperimentalComposeApi
-    @Composable
+    @ExperimentalUnitApi @Composable
     fun showSplashScreen() {
         Box(Modifier.background(Color.Black)) {
             AndroidView({ context ->

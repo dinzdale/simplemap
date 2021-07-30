@@ -218,7 +218,8 @@ class MainMapFragment : Fragment() {
                 "puerto rico",
                 "israel",
                 "france")
-            openChargeMapViewModel.getOperatorsByName("blink", "chargepoint")
+            openChargeMapViewModel.getOperatorsByName("blink", "chargepoint", "evgo network")
+
             openChargeMapViewModel.getUsageTypesByName("public")
             openChargeMapViewModel.paramsFetched.observe(this) {
                 if (it) {
