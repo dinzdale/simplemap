@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -69,7 +70,7 @@ class MainMapFragment : Fragment() {
     private val uiViewModel by viewModels<UIViewModel>()
     private lateinit var scrollEventsJob: Job
     private lateinit var mapView: MapView
-    private lateinit var openChargeMapViewModel: OpenChargeMapViewModel
+    private val openChargeMapViewModel by activityViewModels<OpenChargeMapViewModel>{OpenChargeMapViewModelFactory(requireActivity().application)}
 
     // TODO: Rename and change types of parameters
     private var param1: String? = null
@@ -86,9 +87,6 @@ class MainMapFragment : Fragment() {
     override fun onCreateView(inflater: LayoutInflater,
                               container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
-        openChargeMapViewModel = ViewModelProvider(this,
-            OpenChargeMapViewModelFactory(application = requireActivity().application)).get(
-            OpenChargeMapViewModel::class.java)
 
         return ComposeView(requireContext()).apply {
             setContent {
