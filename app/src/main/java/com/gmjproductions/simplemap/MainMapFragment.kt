@@ -24,7 +24,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
@@ -35,9 +34,11 @@ import com.gmjproductions.simplemap.ui.helpers.BoundingGpsBox
 import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.sendBlocking
+import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
@@ -84,6 +85,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
+    @InternalCoroutinesApi
     override fun onCreateView(inflater: LayoutInflater,
                               container: ViewGroup?,
                               savedInstanceState: Bundle?): View? {
@@ -100,6 +102,7 @@ class MainMapFragment : Fragment() {
     }
 
 
+    @InternalCoroutinesApi
     @Composable fun BuildUI() {
         ConstraintLayout {
             val (map, progress, zoomBtns, OSMCreds) = createRefs()
@@ -198,12 +201,14 @@ class MainMapFragment : Fragment() {
         }
     }
 
+    @InternalCoroutinesApi
     fun initOpenChargeMap() {
         openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
         openChargeMapViewModel.dbIntialized.observe(this.viewLifecycleOwner,
             openChargeMapDBInitializedListener)
     }
 
+    @InternalCoroutinesApi
     val openChargeMapDBInitializedListener = Observer<Boolean> {
         if (it) {
             openChargeMapViewModel.getChargeTypes()
@@ -318,6 +323,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
+    @InternalCoroutinesApi
     override fun onResume() {
         super.onResume()
         if (::mapView.isInitialized) {
@@ -327,6 +333,7 @@ class MainMapFragment : Fragment() {
     }
 
 
+    @InternalCoroutinesApi
     @ExperimentalCoroutinesApi fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
@@ -352,7 +359,7 @@ class MainMapFragment : Fragment() {
         myMapListener = object : MapAdapter() {
             override fun onScroll(event: ScrollEvent?): Boolean {
                 mapView.boundingBox.apply {
-                    sendBlocking(this.BoundingGpsBox())
+                    trySendBlocking(this.BoundingGpsBox())
                 }
                 return super.onScroll(event)
             }
