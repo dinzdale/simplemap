@@ -7,5 +7,11 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "SimpleMap"
-include(":app")
+// Define for library module
+//include(":app")
+// Define for local module
+include(":app",":openchargemap")
+project(":openchargemap").apply{
+    projectDir = File(settingsDir,"../test/openchargemap_android_library/openchargemap")
+}
  
