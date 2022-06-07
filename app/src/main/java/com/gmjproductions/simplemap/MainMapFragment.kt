@@ -1,5 +1,6 @@
 package com.gmjproductions.simplemap
 
+import android.Manifest
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
@@ -7,11 +8,12 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -132,7 +134,8 @@ class MainMapFragment : Fragment() {
                 mapController.setCenter(startPoint)
 //                initOpenChargeMap()
             }
-            InitOpenChargeMap()
+            //InitOpenChargeMap()
+            CheckLocationPermissions()
             showStatusBar(Modifier
                 .constrainAs(progress) {
                     centerTo(parent)
@@ -218,12 +221,41 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
+    fun CheckLocationPermissions() {
+        val initOpenChargeMap = remember{ mutableStateOf(false)}
+        val permissions =
+            rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+                when {
+                    permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+initOpenChargeMap.value = true
+                    }
+                    permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                        initOpenChargeMap.value = true
+                    }
+                    else -> {
+                        // No permissions granted
+                    }
+                }
+            }
+        SideEffect {
+            permissions.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            )
+        }
+        InitOpenChargeMap(permissionsGranted = initOpenChargeMap)
+    }
+
+    @Composable
     fun InitOpenChargeMap(
+        permissionsGranted : State<Boolean>,
         dbInitState: Boolean = openChargeMapViewModel.dbIntialized.observeAsState(
             false
         ).value
     ) {
-        if (dbInitState) {
+        if (permissionsGranted.value && dbInitState) {
             LaunchedEffect(true) {
                 openChargeMapViewModel.getChargeTypes()
                 openChargeMapViewModel.getStatusTypes()
