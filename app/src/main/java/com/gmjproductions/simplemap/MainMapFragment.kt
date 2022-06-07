@@ -71,7 +71,11 @@ class MainMapFragment : Fragment() {
     private val uiViewModel by viewModels<UIViewModel>()
     private lateinit var scrollEventsJob: Job
     private lateinit var mapView: MapView
-    private val openChargeMapViewModel by activityViewModels<OpenChargeMapViewModel>{OpenChargeMapViewModelFactory(requireActivity().application)}
+    private val openChargeMapViewModel by activityViewModels<OpenChargeMapViewModel> {
+        OpenChargeMapViewModelFactory(
+            requireActivity().application
+        )
+    }
 
     // TODO: Rename and change types of parameters
     private var param1: String? = null
@@ -86,9 +90,11 @@ class MainMapFragment : Fragment() {
     }
 
     @InternalCoroutinesApi
-    override fun onCreateView(inflater: LayoutInflater,
-                              container: ViewGroup?,
-                              savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
 
         return ComposeView(requireContext()).apply {
             setContent {
@@ -103,7 +109,8 @@ class MainMapFragment : Fragment() {
 
 
     @InternalCoroutinesApi
-    @Composable fun BuildUI() {
+    @Composable
+    fun BuildUI() {
         ConstraintLayout {
             val (map, progress, zoomBtns, OSMCreds) = createRefs()
             AndroidView({
@@ -123,8 +130,9 @@ class MainMapFragment : Fragment() {
                 mapController.setZoom(10.0)
                 val startPoint = GeoPoint(39.9151, -73.9857)
                 mapController.setCenter(startPoint)
-                initOpenChargeMap()
+//                initOpenChargeMap()
             }
+            InitOpenChargeMap()
             showStatusBar(Modifier
                 .constrainAs(progress) {
                     centerTo(parent)
@@ -144,7 +152,8 @@ class MainMapFragment : Fragment() {
         showSnackBarMessage(uiViewModel = uiViewModel)
     }
 
-    @Composable fun buildZoomButtons(modifier: Modifier) {
+    @Composable
+    fun buildZoomButtons(modifier: Modifier) {
         Column(modifier = modifier.size(125.dp)) {
             Button(onClick = {
                 if (mapView.canZoomIn()) {
@@ -164,25 +173,31 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    @Composable fun showOpenStreetMapCreds(modifier: Modifier) {
-        Text("© OpenStreetMap contributors",
+    @Composable
+    fun showOpenStreetMapCreds(modifier: Modifier) {
+        Text(
+            "© OpenStreetMap contributors",
             modifier.wrapContentSize(),
             color = Color.Companion.DarkGray,
-            fontSize = 14.sp)
+            fontSize = 14.sp
+        )
     }
 
-    @Composable fun showStatusBar(visible: Boolean, modifier: Modifier) {
+    @Composable
+    fun showStatusBar(visible: Boolean, modifier: Modifier) {
         if (visible) {
             CircularProgressIndicator(modifier)
         }
     }
 
-    @Composable fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
+    @Composable
+    fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
         val showProgress: Boolean by uiViewModel.showProgressBar.observeAsState(false)
         showStatusBar(showProgress, modifier)
     }
 
-    @Composable fun showSnackBarMessage(uiViewModel: UIViewModel) {
+    @Composable
+    fun showSnackBarMessage(uiViewModel: UIViewModel) {
         val snackBarMessage: String by uiViewModel.snackbarMessage.observeAsState("")
         showSnackBarMessage(snackBarMessage)
         LaunchedEffect(snackBarMessage) {
@@ -191,7 +206,8 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    @Composable fun showSnackBarMessage(message: String) {
+    @Composable
+    fun showSnackBarMessage(message: String) {
         if (message.isNotEmpty()) {
             Scaffold(backgroundColor = Color.Transparent, bottomBar = @Composable {
                 Snackbar(Modifier.padding(5.dp)) {
@@ -201,62 +217,49 @@ class MainMapFragment : Fragment() {
         }
     }
 
-    @InternalCoroutinesApi
-    fun initOpenChargeMap() {
-        openChargeMapViewModel.dbIntialized.removeObserver(openChargeMapDBInitializedListener)
-        openChargeMapViewModel.dbIntialized.observe(this.viewLifecycleOwner,
-            openChargeMapDBInitializedListener)
+    @Composable
+    fun InitOpenChargeMap(
+        dbInitState: Boolean = openChargeMapViewModel.dbIntialized.observeAsState(
+            false
+        ).value
+    ) {
+        if (dbInitState) {
+            LaunchedEffect(true) {
+                openChargeMapViewModel.getChargeTypes()
+                openChargeMapViewModel.getStatusTypes()
+                openChargeMapViewModel.getConnectionTypesByName("chademo", "J1772", "CCS")
+                openChargeMapViewModel.getCountriesByName(
+                    "united states",
+                    "mexico",
+                    "canada",
+                    "puerto rico",
+                    "israel",
+                    "france"
+                )
+                openChargeMapViewModel.getOperatorsByName("blink", "chargepoint", "evgo network")
+                openChargeMapViewModel.getUsageTypesByName("public")
+
+            }
+            WaitEVParamDataToBeLoaded()
+        }
     }
 
-    @InternalCoroutinesApi
-    val openChargeMapDBInitializedListener = Observer<Boolean> {
-        if (it) {
-            openChargeMapViewModel.getChargeTypes()
-            openChargeMapViewModel.getStatusTypes()
-
-            openChargeMapViewModel.getConnectionTypesByName("chademo", "J1772", "CCS")
-            openChargeMapViewModel.getCountriesByName("united states",
-                "mexico",
-                "canada",
-                "puerto rico",
-                "israel",
-                "france")
-            openChargeMapViewModel.getOperatorsByName("blink", "chargepoint", "evgo network")
-
-            openChargeMapViewModel.getUsageTypesByName("public")
-            openChargeMapViewModel.paramsFetched.observe(this) {
-                if (it) {
-                    openChargeMapViewModel.pois.observe(this, openChargeMapPOIObserver)
-
-                    listenForMapScrollEvents()
-
-                    // show initial charging stations
-                    relocateOpenChargeMapMarkers(mapView.boundingBox.BoundingGpsBox())
-                }
+    @Composable
+    fun WaitEVParamDataToBeLoaded(paramsFetched: Boolean? = openChargeMapViewModel.paramsFetched.observeAsState().value) {
+        paramsFetched?.also {
+            if (it) {
+                ListenForPoiUpdates()
+                listenForMapScrollEvents()
+                // show initial charging stations
+                relocateOpenChargeMapMarkers(mapView.boundingBox.BoundingGpsBox())
             }
         }
     }
 
-
-    fun relocateOpenChargeMapMarkers(box: BoundingGpsBox) {
-        Log.d(LogTag,
-            "relocateOpenChargeMapMarkers: lat:${box.center.first}, lon:${box.center.second}") // wait for all params to get fetched into model
-        openChargeMapViewModel.getPOIs(box.center.first,
-            box.center.second,
-            countryIDs = openChargeMapViewModel.getCountryIDs(),
-            operatorIDs = openChargeMapViewModel.getOperatorIDs(),
-            connectionTypeIDs = openChargeMapViewModel.getConnectionTypeIDs(),
-            usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
-            statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
-            maxResults = 100,
-            radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt())
-        uiViewModel.showProgressBar(true)
-    }
-
-
-    val openChargeMapPOIObserver = Observer<Optional<APIResponse>> {
-        uiViewModel.showProgressBar(false)
-        it.orElse(null)?.also { response ->
+    @Composable
+    fun ListenForPoiUpdates(optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
+        optional?.orElse(null)?.also { response ->
+            uiViewModel.showProgressBar(false)
             when (response) {
                 is APIResponse.Success<*> -> {
                     val list = (response as APIResponse.Success<List<PoiItem>>).data
@@ -264,14 +267,20 @@ class MainMapFragment : Fragment() {
                     if (list.isNotEmpty()) { // clear previous pins
                         clearClustersAndMarkers()
                         val markerClusterer = RadiusMarkerClusterer(context).apply {
-                            setIcon(BitmapFactory.decodeResource(resources,
-                                R.drawable.marker_cluster))
+                            setIcon(
+                                BitmapFactory.decodeResource(
+                                    resources,
+                                    R.drawable.marker_cluster
+                                )
+                            )
                         }
                         list.forEach { poi ->
                             val nxtMarker = Marker(mapView).apply {
                                 poi.addressInfo?.also { addressInfo ->
-                                    icon = BitmapDrawable(resources,
-                                        MapMarkers(requireContext()).getIconForPOI(poi))
+                                    icon = BitmapDrawable(
+                                        resources,
+                                        MapMarkers(requireContext()).getIconForPOI(poi)
+                                    )
                                     position = GeoPoint(addressInfo.latitude, addressInfo.longitude)
                                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                                     infoWindow =
@@ -295,6 +304,25 @@ class MainMapFragment : Fragment() {
                 }
             }
         }
+    }
+
+    fun relocateOpenChargeMapMarkers(box: BoundingGpsBox) {
+        Log.d(
+            LogTag,
+            "relocateOpenChargeMapMarkers: lat:${box.center.first}, lon:${box.center.second}"
+        ) // wait for all params to get fetched into model
+        openChargeMapViewModel.getPOIs(
+            box.center.first,
+            box.center.second,
+            countryIDs = openChargeMapViewModel.getCountryIDs(),
+            operatorIDs = openChargeMapViewModel.getOperatorIDs(),
+            connectionTypeIDs = openChargeMapViewModel.getConnectionTypeIDs(),
+            usageTypeIDs = openChargeMapViewModel.getUsageTypeIDs(),
+            statusTypeIDs = openChargeMapViewModel.getStatusTypeIDs(),
+            maxResults = 100,
+            radiusInMiles = (box.distanceMetersWidth / GeoConstants.METERS_PER_STATUTE_MILE).toInt()
+        )
+        uiViewModel.showProgressBar(true)
     }
 
     fun clearClustersAndMarkers() { // clear clusters
@@ -333,8 +361,9 @@ class MainMapFragment : Fragment() {
     }
 
 
-    @InternalCoroutinesApi
-    @ExperimentalCoroutinesApi fun listenForMapScrollEvents() {
+    //    @InternalCoroutinesApi
+//    @ExperimentalCoroutinesApi fun listenForMapScrollEvents() {
+    fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
         }
@@ -342,8 +371,10 @@ class MainMapFragment : Fragment() {
             var previousLocation: GeoPoint? = null
             mapScrollFlow().debounce(1 * 1000).collect { box ->
                 val nxtCenterLocation = GeoPoint(box.center.first, box.center.second)
-                nxtCenterLocation.OnLocationChangeInMeters(box.distanceMetersWidth.toInt() / 2,
-                    previousLocation) { thresholdMet, distance ->
+                nxtCenterLocation.OnLocationChangeInMeters(
+                    box.distanceMetersWidth.toInt() / 2,
+                    previousLocation
+                ) { thresholdMet, distance ->
                     if (thresholdMet) {
                         relocateOpenChargeMapMarkers(box)
                     }
@@ -355,7 +386,8 @@ class MainMapFragment : Fragment() {
 
     private var myMapListener: MapAdapter? = null
 
-    @ExperimentalCoroutinesApi fun mapScrollFlow() = callbackFlow<BoundingGpsBox> {
+    @ExperimentalCoroutinesApi
+    fun mapScrollFlow() = callbackFlow<BoundingGpsBox> {
         myMapListener = object : MapAdapter() {
             override fun onScroll(event: ScrollEvent?): Boolean {
                 mapView.boundingBox.apply {
@@ -384,7 +416,8 @@ class MainMapFragment : Fragment() {
          * @param param2 Parameter 2.
          * @return A new instance of fragment MainMapFragment.
          */ // TODO: Rename and change types and number of parameters
-        @JvmStatic fun newInstance(param1: String, param2: String) = MainMapFragment().apply {
+        @JvmStatic
+        fun newInstance(param1: String, param2: String) = MainMapFragment().apply {
             arguments = Bundle().apply {
                 putString(ARG_PARAM1, param1)
                 putString(ARG_PARAM2, param2)
