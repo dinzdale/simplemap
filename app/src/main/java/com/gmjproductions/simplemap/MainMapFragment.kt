@@ -1,8 +1,10 @@
 package com.gmjproductions.simplemap
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -35,6 +37,9 @@ import com.gmjacobs.productions.openchargemap.utils.MapMarkers
 import com.gmjproductions.simplemap.ui.helpers.BoundingGpsBox
 import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.OnSuccessListener
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -73,6 +78,7 @@ class MainMapFragment : Fragment() {
     private val uiViewModel by viewModels<UIViewModel>()
     private lateinit var scrollEventsJob: Job
     private lateinit var mapView: MapView
+    private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private val openChargeMapViewModel by activityViewModels<OpenChargeMapViewModel> {
         OpenChargeMapViewModelFactory(
             requireActivity().application
@@ -97,7 +103,7 @@ class MainMapFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity())
         return ComposeView(requireContext()).apply {
             setContent {
                 SimpleMapTheme { // A surface container using the 'background' color from the theme
@@ -130,8 +136,8 @@ class MainMapFragment : Fragment() {
                 mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 val mapController = mapView.controller
                 mapController.setZoom(10.0)
-                val startPoint = GeoPoint(39.9151, -73.9857)
-                mapController.setCenter(startPoint)
+//                val startPoint = GeoPoint(39.9151, -73.9857)
+//                mapController.setCenter(startPoint)
 //                initOpenChargeMap()
             }
             //InitOpenChargeMap()
@@ -221,19 +227,36 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
+    fun CenterMap(
+        centerMapState: MutableState<Boolean>,
+        location: State<Location?> = getLastLocation().collectAsState(null)
+    ) {
+        if (centerMapState.value) {
+            location.value?.also {
+                val startPoint = GeoPoint(it.latitude, it.longitude)
+                mapView.controller.setCenter(startPoint)
+                centerMapState.value = false
+            }
+        }
+    }
+    @Composable
     fun CheckLocationPermissions() {
-        val initOpenChargeMap = remember{ mutableStateOf(false)}
+        val initOpenChargeMap = remember { mutableStateOf(false) }
+        val centerMapState = remember { mutableStateOf(false)}
         val permissions =
             rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
                 when {
                     permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-initOpenChargeMap.value = true
+                        centerMapState.value = true
+                        initOpenChargeMap.value = true
                     }
                     permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                        centerMapState.value = true
                         initOpenChargeMap.value = true
                     }
                     else -> {
                         // No permissions granted
+
                     }
                 }
             }
@@ -245,12 +268,14 @@ initOpenChargeMap.value = true
                 )
             )
         }
+        
+        CenterMap(centerMapState = centerMapState)
         InitOpenChargeMap(permissionsGranted = initOpenChargeMap)
     }
 
     @Composable
     fun InitOpenChargeMap(
-        permissionsGranted : State<Boolean>,
+        permissionsGranted: State<Boolean>,
         dbInitState: Boolean = openChargeMapViewModel.dbIntialized.observeAsState(
             false
         ).value
@@ -439,6 +464,15 @@ initOpenChargeMap.value = true
         }
     } //    @Preview //    @Composable //    fun showPreview() { //    }
 
+
+    @SuppressLint("MissingPermission")
+    fun getLastLocation() = callbackFlow<Location> {
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener {
+            trySendBlocking(it)
+        }
+        awaitClose {
+        }
+    }
     companion object {
         /**
          * Use this factory method to create a new instance of
