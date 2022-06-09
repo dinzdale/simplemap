@@ -11,8 +11,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
@@ -20,6 +21,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,7 +29,6 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModel
 import com.gmjacobs.productions.openchargemap.model.OpenChargeMapViewModelFactory
@@ -39,16 +40,13 @@ import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.tasks.OnSuccessListener
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.sendBlocking
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
@@ -103,7 +101,8 @@ class MainMapFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        fusedLocationProviderClient =
+            LocationServices.getFusedLocationProviderClient(requireActivity())
         return ComposeView(requireContext()).apply {
             setContent {
                 SimpleMapTheme { // A surface container using the 'background' color from the theme
@@ -119,8 +118,11 @@ class MainMapFragment : Fragment() {
     @InternalCoroutinesApi
     @Composable
     fun BuildUI() {
+        val centerMapState = remember {
+            mutableStateOf(false)
+        }
         ConstraintLayout {
-            val (map, progress, zoomBtns, OSMCreds) = createRefs()
+            val (map, progress, zoomBtns, OSMCreds, currentLocation) = createRefs()
             AndroidView({
                 MapView(it).apply {
                     isTilesScaledToDpi = true
@@ -132,16 +134,10 @@ class MainMapFragment : Fragment() {
                 bottom.linkTo(parent.bottom)
             }) {
                 mapView = it
-                mapView.setTileSource(TileSourceFactory.MAPNIK)
                 mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
                 val mapController = mapView.controller
                 mapController.setZoom(10.0)
-//                val startPoint = GeoPoint(39.9151, -73.9857)
-//                mapController.setCenter(startPoint)
-//                initOpenChargeMap()
             }
-            //InitOpenChargeMap()
-            CheckLocationPermissions()
             showStatusBar(Modifier
                 .constrainAs(progress) {
                     centerTo(parent)
@@ -157,7 +153,15 @@ class MainMapFragment : Fragment() {
                 start.linkTo(zoomBtns.start)
                 bottom.linkTo(parent.bottom, 30.dp)
             })
+            showCurrentLocationBtn(Modifier.constrainAs(currentLocation) {
+                end.linkTo(parent.end, margin = 10.dp)
+                bottom.linkTo(parent.bottom, margin = 100.dp)
+            }) {
+                centerMapState.value = true
+            }
         } // setup snackbar
+        CenterMap(centerMapState = centerMapState)
+        CheckLocationPermissions(centerMapState)
         showSnackBarMessage(uiViewModel = uiViewModel)
     }
 
@@ -201,8 +205,7 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun showStatusBar(modifier: Modifier, uiViewModel: UIViewModel) {
-        val showProgress: Boolean by uiViewModel.showProgressBar.observeAsState(false)
-        showStatusBar(showProgress, modifier)
+        showStatusBar(uiViewModel.showProgressBar.value, modifier)
     }
 
     @Composable
@@ -227,6 +230,17 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
+    fun showCurrentLocationBtn(modifier: Modifier, onClick:()->Unit) {
+        Image(
+            modifier = modifier
+                .size(50.dp)
+                .clickable(onClick = onClick),
+            painter = painterResource(id = R.drawable.ic_current_location),
+            contentDescription = null,
+        )
+    }
+
+    @Composable
     fun CenterMap(
         centerMapState: MutableState<Boolean>,
         location: State<Location?> = getLastLocation().collectAsState(null)
@@ -239,10 +253,11 @@ class MainMapFragment : Fragment() {
             }
         }
     }
+
     @Composable
-    fun CheckLocationPermissions() {
+    fun CheckLocationPermissions(centerMapState: MutableState<Boolean>) {
         val initOpenChargeMap = remember { mutableStateOf(false) }
-        val centerMapState = remember { mutableStateOf(false)}
+
         val permissions =
             rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
                 when {
@@ -268,8 +283,8 @@ class MainMapFragment : Fragment() {
                 )
             )
         }
-        
-        CenterMap(centerMapState = centerMapState)
+
+
         InitOpenChargeMap(permissionsGranted = initOpenChargeMap)
     }
 
@@ -315,8 +330,8 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun ListenForPoiUpdates(optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
+        uiViewModel.showProgressBar(false)
         optional?.orElse(null)?.also { response ->
-            uiViewModel.showProgressBar(false)
             when (response) {
                 is APIResponse.Success<*> -> {
                     val list = (response as APIResponse.Success<List<PoiItem>>).data
@@ -473,6 +488,7 @@ class MainMapFragment : Fragment() {
         awaitClose {
         }
     }
+
     companion object {
         /**
          * Use this factory method to create a new instance of
