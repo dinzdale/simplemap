@@ -47,6 +47,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
@@ -71,6 +72,7 @@ private const val ARG_PARAM2 = "param2"
  * Use the [MainMapFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
+@OptIn(InternalCoroutinesApi::class)
 class MainMapFragment : Fragment() {
     private val LogTag = MainMapFragment::class.java.simpleName
     private val uiViewModel by viewModels<UIViewModel>()
