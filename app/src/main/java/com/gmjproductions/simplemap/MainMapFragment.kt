@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -40,16 +41,12 @@ import com.gmjproductions.simplemap.ui.helpers.OnLocationChangeInMeters
 import com.gmjproductions.simplemap.ui.theme.SimpleMapTheme
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.launch
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
@@ -232,7 +229,7 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun showCurrentLocationBtn(modifier: Modifier, onClick:()->Unit) {
+    fun showCurrentLocationBtn(modifier: Modifier, onClick: () -> Unit) {
         Image(
             modifier = modifier
                 .size(50.dp)
@@ -259,35 +256,57 @@ class MainMapFragment : Fragment() {
     @Composable
     fun CheckLocationPermissions(centerMapState: MutableState<Boolean>) {
         val initOpenChargeMap = remember { mutableStateOf(false) }
-
+        val showLocationPermsissionsRationale = remember { mutableStateOf(false) }
         val permissions =
             rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
                 when {
-                    permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                        centerMapState.value = true
-                        initOpenChargeMap.value = true
-                    }
-                    permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                    permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||  permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
                         centerMapState.value = true
                         initOpenChargeMap.value = true
                     }
                     else -> {
-                        // No permissions granted
+                        when {
+                            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)  || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION) -> {
+                                showLocationPermsissionsRationale.value = true                            }
+                            else->{
+                                showLocationPermsissionsRationale.value = true
+                            }
 
+                        }
                     }
                 }
             }
-        SideEffect {
-            permissions.launch(
+        LaunchedEffect(true) {
+            permissions.launch (
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_COARSE_LOCATION
                 )
             )
         }
 
-
+        ShowLocationPermissionRationale(showLocationPermsissionsRationale) {
+            showLocationPermsissionsRationale.value = false
+            requireActivity().finish()
+        }
         InitOpenChargeMap(permissionsGranted = initOpenChargeMap)
+    }
+
+    @Composable
+    fun ShowLocationPermissionRationale(show: State<Boolean>, onClick : ()->Unit ) {
+        if (show.value) {
+            AlertDialog(onDismissRequest = onClick,
+                text = {
+                    Text(stringResource(id = R.string.location_rationale))
+                },
+                buttons = {
+                    Button(onClick = onClick) {
+                        Text(text = stringResource(android.R.string.ok))
+                    }
+                }
+            )
+
+        }
     }
 
     @Composable
@@ -323,9 +342,11 @@ class MainMapFragment : Fragment() {
         paramsFetched?.also {
             if (it) {
                 ListenForPoiUpdates()
-                listenForMapScrollEvents()
-                // show initial charging stations
-                relocateOpenChargeMapMarkers(mapView.boundingBox.BoundingGpsBox())
+                LaunchedEffect(true) {
+                    listenForMapScrollEvents()
+                    // show initial charging stations
+                    relocateOpenChargeMapMarkers(mapView.boundingBox.BoundingGpsBox())
+                }
             }
         }
     }
@@ -430,20 +451,17 @@ class MainMapFragment : Fragment() {
         super.onResume()
         if (::mapView.isInitialized) {
             mapView.onResume()
-            listenForMapScrollEvents()
         }
     }
 
 
-    //    @InternalCoroutinesApi
-//    @ExperimentalCoroutinesApi fun listenForMapScrollEvents() {
     fun listenForMapScrollEvents() {
         if (::scrollEventsJob.isInitialized && scrollEventsJob.isActive) {
             scrollEventsJob.cancel()
         }
         scrollEventsJob = lifecycleScope.launch {
             var previousLocation: GeoPoint? = null
-            mapScrollFlow().debounce(1 * 1000).collect { box ->
+            mapScrollFlow().debounce(1 * 750).collect { box ->
                 val nxtCenterLocation = GeoPoint(box.center.first, box.center.second)
                 nxtCenterLocation.OnLocationChangeInMeters(
                     box.distanceMetersWidth.toInt() / 2,
@@ -488,6 +506,7 @@ class MainMapFragment : Fragment() {
             trySendBlocking(it)
         }
         awaitClose {
+            cancel()
         }
     }
 
