@@ -354,9 +354,6 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun ListenForPoiUpdates(optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
-       val snackBarMsg = remember{ mutableStateOf("")}
-        val coroutineScope = rememberCoroutineScope()
-        showSnackBarMessage(message = snackBarMsg.value)
         uiViewModel.showProgressBar(false)
         optional?.orElse(null)?.also { response ->
             when (response) {
@@ -404,19 +401,6 @@ class MainMapFragment : Fragment() {
 
                                         }
                                 }
-//                                setOnMarkerClickListener { marker, mapView ->
-//                                    coroutineScope.launch {
-////                                        snackBarMsg.value = "Marker Clicked"
-////                                        delay(3*1000)
-////                                        snackBarMsg.value = ""
-////                                        markerClusterer.items.forEach {
-////                                            if (marker != it && it.isInfoWindowOpen) {
-////                                                it.infoWindow.close()
-////                                            }
-////                                        }
-//                                    }
-//                                    true
-//                                }
                             }
                             markerClusterer.add(nxtMarker)
                         }
