@@ -8,6 +8,7 @@ import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -353,6 +354,9 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun ListenForPoiUpdates(optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
+       val snackBarMsg = remember{ mutableStateOf("")}
+        val coroutineScope = rememberCoroutineScope()
+        showSnackBarMessage(message = snackBarMsg.value)
         uiViewModel.showProgressBar(false)
         optional?.orElse(null)?.also { response ->
             when (response) {
@@ -370,7 +374,22 @@ class MainMapFragment : Fragment() {
                             )
                         }
                         list.forEach { poi ->
-                            val nxtMarker = Marker(mapView).apply {
+                            val nxtMarker = object: Marker(mapView){
+                                override fun onSingleTapConfirmed(event: MotionEvent?,
+                                    mapView: MapView?): Boolean {
+                                    val isClicked = super.onSingleTapConfirmed(event, mapView)
+                                    if (isClicked) {
+                                        markerClusterer.items.forEach {
+                                            if (it != this) {
+                                                if (it.isInfoWindowOpen) {
+                                                    it.closeInfoWindow()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    return isClicked
+                                }
+                            }.apply {
                                 poi.addressInfo?.also { addressInfo ->
                                     icon = BitmapDrawable(
                                         resources,
@@ -385,7 +404,19 @@ class MainMapFragment : Fragment() {
 
                                         }
                                 }
-
+//                                setOnMarkerClickListener { marker, mapView ->
+//                                    coroutineScope.launch {
+////                                        snackBarMsg.value = "Marker Clicked"
+////                                        delay(3*1000)
+////                                        snackBarMsg.value = ""
+////                                        markerClusterer.items.forEach {
+////                                            if (marker != it && it.isInfoWindowOpen) {
+////                                                it.infoWindow.close()
+////                                            }
+////                                        }
+//                                    }
+//                                    true
+//                                }
                             }
                             markerClusterer.add(nxtMarker)
                         }
