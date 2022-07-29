@@ -158,6 +158,7 @@ class MainMapFragment : Fragment() {
                 bottom.linkTo(parent.bottom, margin = 100.dp)
             }) {
                 centerMapState.value = true
+                mapView.controller.setZoom(10.0)
             }
         } // setup snackbar
         CenterMap(centerMapState = centerMapState)
@@ -376,6 +377,7 @@ class MainMapFragment : Fragment() {
                                     mapView: MapView?): Boolean {
                                     val isClicked = super.onSingleTapConfirmed(event, mapView)
                                     if (isClicked) {
+                                        uiViewModel.showSnackBarMessage("${poi.addressInfo?.latitude},${poi.addressInfo?.longitude} -- ${poi.operatorInfo.title}")
                                         markerClusterer.items.forEach {
                                             if (it != this) {
                                                 if (it.isInfoWindowOpen) {
@@ -403,6 +405,12 @@ class MainMapFragment : Fragment() {
                                 }
                             }
                             markerClusterer.add(nxtMarker)
+                        }
+                        mapView.overlayManager.filter { it is Marker }.also {
+                            Log.d(LogTag, "Markers added to OverlayManager, NO MARKERS ${it.size}")
+                        }
+                        markerClusterer.items.filter{ it is Marker}.also {
+                            Log.d(LogTag, "Markers added to MarkerClusterer, NO MARKERS ${it.size}")
                         }
                         mapView.overlayManager.add(markerClusterer)
                         mapView.invalidate()
@@ -435,19 +443,21 @@ class MainMapFragment : Fragment() {
         uiViewModel.showProgressBar(true)
     }
 
-    fun clearClustersAndMarkers() { // clear clusters
+    fun clearClustersAndMarkers() {
+        // clear clusters
         mapView.overlayManager.filter {
             it is RadiusMarkerClusterer
-        }?.apply {
-            mapView.overlayManager.removeAll(this)
-        } // clear markers
-        val markerList = mapView.overlayManager.filter {
-            it is Marker
-        }.map { it as Marker }
-        markerList.forEach {
-            it.closeInfoWindow()
+        }.map {
+            it as RadiusMarkerClusterer
+        }.also {
+            // remove all open infowindows
+            it.forEach {
+                it.items.forEach {
+                    it.closeInfoWindow()
+                }
+            }
+            mapView.overlayManager.removeAll(it)
         }
-        mapView.overlayManager.removeAll(markerList)
 
     }
 
