@@ -149,11 +149,11 @@ class MainMapFragment : Fragment() {
             Box(Modifier
                 .fillMaxSize()
                 .wrapContentSize(Alignment.CenterEnd)) {
-                Text(modifier = Modifier.clickable { expanded.value = true }, text = "Options")
+                Text(modifier = Modifier.clickable { expanded.value = true }.padding(end = 10.dp), text = "Options")
                 DropdownMenu(modifier = Modifier.background(Color.White), expanded = expanded.value,
                     onDismissRequest = { expanded.value = false }) {
                     DropdownMenuItem(onClick = { }) {
-                        DropDownItem(text = "show one POI info window on click") {
+                        DropDownItem(text = "show one POI info window") {
                             scope.launch {
                                 infoWindowShowAll(it)
                                 expanded.value = false
@@ -168,14 +168,11 @@ class MainMapFragment : Fragment() {
     @Composable
     fun DropDownItem(text: String, showChecked: Boolean = getInfoViewSetting.collectAsState(
         initial = false).value, checkBoxClicked: (Boolean) -> Unit) {
-        val checkedState = remember { mutableStateOf(showChecked) }
-        Row(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = showChecked, onCheckedChange = {
-                checkedState.value = it
                 checkBoxClicked(it)
             })
-
-            Text(text)
+            Text(text, Modifier.padding(10.dp))
         }
     }
 
