@@ -2,6 +2,7 @@ package com.gmjproductions.simplemap
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.location.Location
@@ -14,20 +15,26 @@ import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -45,9 +52,6 @@ import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.debounce
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
@@ -59,6 +63,12 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
+import kotlinx.coroutines.flow.*
+import androidx.datastore.core.*
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -83,6 +93,12 @@ class MainMapFragment : Fragment() {
         )
     }
 
+    val getInfoViewSetting: Flow<Boolean> by lazy {
+        requireContext().dataStoree.data.map { preferences->
+            preferences[INFOWINDOW_SHOW_ALL] ?: false
+        }
+    }
+
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
@@ -100,7 +116,7 @@ class MainMapFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         fusedLocationProviderClient =
             LocationServices.getFusedLocationProviderClient(requireActivity())
         return ComposeView(requireContext()).apply {
@@ -118,6 +134,53 @@ class MainMapFragment : Fragment() {
     @InternalCoroutinesApi
     @Composable
     fun BuildUI() {
+        val scaffoldState = rememberScaffoldState()
+        Scaffold(scaffoldState = scaffoldState, content = { MapContent() }, topBar = { TopBar() },
+            bottomBar = { showSnackBarMessage(uiViewModel = uiViewModel) })
+    }
+
+    @Composable
+    fun TopBar() {
+        val expanded = remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        TopAppBar(Modifier
+            .background(Color.Red)
+            .wrapContentSize()) {
+            Box(Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.CenterEnd)) {
+                Text(modifier = Modifier.clickable { expanded.value = true }, text = "Options")
+                DropdownMenu(modifier = Modifier.background(Color.White), expanded = expanded.value,
+                    onDismissRequest = { expanded.value = false }) {
+                    DropdownMenuItem(onClick = { }) {
+                        DropDownItem(text = "show one POI info window on click") {
+                            scope.launch {
+                                infoWindowShowAll(it)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun DropDownItem(text: String, showChecked: Boolean? =  getInfoViewSetting.collectAsState(
+        initial = null).value, checkBoxClicked: (Boolean) -> Unit) {
+        val checkedState = remember { mutableStateOf(showChecked) }
+        Row(Modifier.fillMaxSize()) {
+            showChecked?.also {
+                Checkbox(checked = it, onCheckedChange = {
+                    checkedState.value = it
+                    checkBoxClicked(it)
+                })
+            }
+            Text(text)
+        }
+    }
+
+    @Composable
+    fun MapContent() {
         val centerMapState = remember {
             mutableStateOf(false)
         }
@@ -135,8 +198,7 @@ class MainMapFragment : Fragment() {
             }) {
                 mapView = it
                 mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-                val mapController = mapView.controller
-                mapController.setZoom(10.0)
+                mapView.controller.setZoom(10.0)
             }
             showStatusBar(Modifier
                 .constrainAs(progress) {
@@ -163,7 +225,6 @@ class MainMapFragment : Fragment() {
         } // setup snackbar
         CenterMap(centerMapState = centerMapState)
         CheckLocationPermissions(centerMapState)
-        showSnackBarMessage(uiViewModel = uiViewModel)
     }
 
     @Composable
@@ -192,7 +253,7 @@ class MainMapFragment : Fragment() {
         Text(
             "© OpenStreetMap contributors",
             modifier.wrapContentSize(),
-            color = Color.Companion.DarkGray,
+            color = Color.DarkGray,
             fontSize = 14.sp
         )
     }
@@ -222,11 +283,9 @@ class MainMapFragment : Fragment() {
     @Composable
     fun showSnackBarMessage(message: String) {
         if (message.isNotEmpty()) {
-            Scaffold(backgroundColor = Color.Transparent, bottomBar = @Composable {
-                Snackbar(Modifier.padding(5.dp)) {
-                    Text(text = message)
-                }
-            }) {}
+            Snackbar(Modifier.padding(5.dp)) {
+                Text(text = message)
+            }
         }
     }
 
@@ -260,17 +319,23 @@ class MainMapFragment : Fragment() {
         val initOpenChargeMap = remember { mutableStateOf(false) }
         val showLocationPermsissionsRationale = remember { mutableStateOf(false) }
         val permissions =
-            rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
                 when {
-                    permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||  permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                    permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION,
+                        false) || permissions.getOrDefault(
+                        Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
                         centerMapState.value = true
                         initOpenChargeMap.value = true
                     }
                     else -> {
                         when {
-                            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)  || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION) -> {
-                                showLocationPermsissionsRationale.value = true                            }
-                            else->{
+                            shouldShowRequestPermissionRationale(
+                                Manifest.permission.ACCESS_FINE_LOCATION) || shouldShowRequestPermissionRationale(
+                                Manifest.permission.ACCESS_COARSE_LOCATION) -> {
+                                showLocationPermsissionsRationale.value = true
+                            }
+                            else -> {
                                 showLocationPermsissionsRationale.value = true
                             }
 
@@ -279,7 +344,7 @@ class MainMapFragment : Fragment() {
                 }
             }
         LaunchedEffect(true) {
-            permissions.launch (
+            permissions.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
@@ -295,7 +360,7 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun ShowLocationPermissionRationale(show: State<Boolean>, onClick : ()->Unit ) {
+    fun ShowLocationPermissionRationale(show: State<Boolean>, onClick: () -> Unit) {
         if (show.value) {
             AlertDialog(onDismissRequest = onClick,
                 text = {
@@ -340,7 +405,8 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun WaitEVParamDataToBeLoaded(paramsFetched: Boolean? = openChargeMapViewModel.paramsFetched.observeAsState().value) {
+    fun WaitEVParamDataToBeLoaded(
+        paramsFetched: Boolean? = openChargeMapViewModel.paramsFetched.observeAsState().value) {
         paramsFetched?.also {
             if (it) {
                 ListenForPoiUpdates()
@@ -354,7 +420,8 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun ListenForPoiUpdates(optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
+    fun ListenForPoiUpdates(
+        optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
         uiViewModel.showProgressBar(false)
         optional?.orElse(null)?.also { response ->
             when (response) {
@@ -372,12 +439,13 @@ class MainMapFragment : Fragment() {
                             )
                         }
                         list.forEach { poi ->
-                            val nxtMarker = object: Marker(mapView){
+                            val nxtMarker = object : Marker(mapView) {
                                 override fun onSingleTapConfirmed(event: MotionEvent?,
                                     mapView: MapView?): Boolean {
                                     val isClicked = super.onSingleTapConfirmed(event, mapView)
                                     if (isClicked) {
-                                        uiViewModel.showSnackBarMessage("${poi.addressInfo?.latitude},${poi.addressInfo?.longitude} -- ${poi.operatorInfo.title}")
+                                        uiViewModel.showSnackBarMessage(
+                                            "${poi.addressInfo?.latitude},${poi.addressInfo?.longitude} -- ${poi.operatorInfo.title}")
                                         markerClusterer.items.forEach {
                                             if (it != this) {
                                                 if (it.isInfoWindowOpen) {
@@ -409,7 +477,7 @@ class MainMapFragment : Fragment() {
                         mapView.overlayManager.filter { it is Marker }.also {
                             Log.d(LogTag, "Markers added to OverlayManager, NO MARKERS ${it.size}")
                         }
-                        markerClusterer.items.filter{ it is Marker}.also {
+                        markerClusterer.items.filter { it is Marker }.also {
                             Log.d(LogTag, "Markers added to MarkerClusterer, NO MARKERS ${it.size}")
                         }
                         mapView.overlayManager.add(markerClusterer)
@@ -535,6 +603,16 @@ class MainMapFragment : Fragment() {
         }
     }
 
+//    val getInfoViewSetting: Flow<Boolean> = Context.dataStoree.data.map { preferences ->
+//        (preferences[INFOWINDOW_SHOW_ALL] ?: false)
+//    }
+    suspend fun infoWindowShowAll(show: Boolean) {
+        requireContext().dataStoree.edit { preferences ->
+            preferences[INFOWINDOW_SHOW_ALL] = show
+        }
+    }
+
+
     companion object {
         /**
          * Use this factory method to create a new instance of
@@ -551,6 +629,9 @@ class MainMapFragment : Fragment() {
                 putString(ARG_PARAM2, param2)
             }
         }
+
+        val Context.dataStoree: DataStore<Preferences> by preferencesDataStore("mapUserPrefs")
+        val INFOWINDOW_SHOW_ALL = booleanPreferencesKey("infowindow_showall")
     }
 
 
