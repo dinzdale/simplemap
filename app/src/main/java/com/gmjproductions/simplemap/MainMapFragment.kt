@@ -94,7 +94,7 @@ class MainMapFragment : Fragment() {
     }
 
     val getInfoViewSetting: Flow<Boolean> by lazy {
-        requireContext().dataStoree.data.map { preferences->
+        requireContext().dataStoree.data.map { preferences ->
             preferences[INFOWINDOW_SHOW_ALL] ?: false
         }
     }
@@ -156,6 +156,7 @@ class MainMapFragment : Fragment() {
                         DropDownItem(text = "show one POI info window on click") {
                             scope.launch {
                                 infoWindowShowAll(it)
+                                expanded.value = false
                             }
                         }
                     }
@@ -165,16 +166,15 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun DropDownItem(text: String, showChecked: Boolean? =  getInfoViewSetting.collectAsState(
-        initial = null).value, checkBoxClicked: (Boolean) -> Unit) {
+    fun DropDownItem(text: String, showChecked: Boolean = getInfoViewSetting.collectAsState(
+        initial = false).value, checkBoxClicked: (Boolean) -> Unit) {
         val checkedState = remember { mutableStateOf(showChecked) }
         Row(Modifier.fillMaxSize()) {
-            showChecked?.also {
-                Checkbox(checked = it, onCheckedChange = {
-                    checkedState.value = it
-                    checkBoxClicked(it)
-                })
-            }
+            Checkbox(checked = showChecked, onCheckedChange = {
+                checkedState.value = it
+                checkBoxClicked(it)
+            })
+
             Text(text)
         }
     }
@@ -603,7 +603,7 @@ class MainMapFragment : Fragment() {
         }
     }
 
-//    val getInfoViewSetting: Flow<Boolean> = Context.dataStoree.data.map { preferences ->
+    //    val getInfoViewSetting: Flow<Boolean> = Context.dataStoree.data.map { preferences ->
 //        (preferences[INFOWINDOW_SHOW_ALL] ?: false)
 //    }
     suspend fun infoWindowShowAll(show: Boolean) {
