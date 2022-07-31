@@ -149,11 +149,15 @@ class MainMapFragment : Fragment() {
             Box(Modifier
                 .fillMaxSize()
                 .wrapContentSize(Alignment.CenterEnd)) {
-                Text(modifier = Modifier.clickable { expanded.value = true }.padding(end = 10.dp), text = "Options")
+                Text(modifier = Modifier
+                    .clickable { expanded.value = true }
+                    .padding(end = 10.dp), text = "Options")
                 DropdownMenu(modifier = Modifier.background(Color.White), expanded = expanded.value,
                     onDismissRequest = { expanded.value = false }) {
                     DropdownMenuItem(onClick = { }) {
-                        DropDownItem(text = "show one POI info window") {
+                        DropDownItem(text = "show one POI info window",
+                            getInfoViewSetting.collectAsState(
+                                initial = null).value) {
                             scope.launch {
                                 infoWindowShowAll(it)
                                 expanded.value = false
@@ -166,13 +170,15 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun DropDownItem(text: String, showChecked: Boolean = getInfoViewSetting.collectAsState(
+    fun DropDownItem(text: String, showChecked: Boolean? = getInfoViewSetting.collectAsState(
         initial = false).value, checkBoxClicked: (Boolean) -> Unit) {
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = showChecked, onCheckedChange = {
-                checkBoxClicked(it)
-            })
-            Text(text, Modifier.padding(10.dp))
+        showChecked?.also {
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = it, onCheckedChange = {
+                    checkBoxClicked(it)
+                })
+                Text(text, Modifier.padding(10.dp))
+            }
         }
     }
 
@@ -419,6 +425,7 @@ class MainMapFragment : Fragment() {
     @Composable
     fun ListenForPoiUpdates(
         optional: Optional<APIResponse>? = openChargeMapViewModel.pois.observeAsState().value) {
+        val scope = rememberCoroutineScope()
         uiViewModel.showProgressBar(false)
         optional?.orElse(null)?.also { response ->
             when (response) {
@@ -437,16 +444,21 @@ class MainMapFragment : Fragment() {
                         }
                         list.forEach { poi ->
                             val nxtMarker = object : Marker(mapView) {
+                                val currentMarker = this
                                 override fun onSingleTapConfirmed(event: MotionEvent?,
                                     mapView: MapView?): Boolean {
                                     val isClicked = super.onSingleTapConfirmed(event, mapView)
                                     if (isClicked) {
                                         uiViewModel.showSnackBarMessage(
                                             "${poi.addressInfo?.latitude},${poi.addressInfo?.longitude} -- ${poi.operatorInfo.title}")
-                                        markerClusterer.items.forEach {
-                                            if (it != this) {
-                                                if (it.isInfoWindowOpen) {
-                                                    it.closeInfoWindow()
+                                        scope.launch {
+                                            getInfoViewSetting.collect { showOne ->
+                                                markerClusterer.items.forEach {
+                                                    if (showOne && it != currentMarker) {
+                                                        if (it.isInfoWindowOpen) {
+                                                            it.closeInfoWindow()
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -488,6 +500,7 @@ class MainMapFragment : Fragment() {
             }
         }
     }
+
 
     fun relocateOpenChargeMapMarkers(box: BoundingGpsBox) {
         Log.d(
