@@ -8,7 +8,7 @@ dependencyResolutionManagement {
 }
 rootProject.name = "SimpleMap"
 // Define for library module
-//include(":app")
+include(":app")
 // Define for local module
 include(":app",":openchargemap")
 project(":openchargemap").apply{

@@ -72,7 +72,7 @@ dependencies {
     // Local module
     implementation(project(mapOf("path" to ":openchargemap")))
     // Public repo library
-    //implementation("com.github.dinzdale:openchargemap_android_library:-SNAPSHOT")
+    //implementation("com.github.dinzdale:openchargemap_android_library:v1.1.6")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.3")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")

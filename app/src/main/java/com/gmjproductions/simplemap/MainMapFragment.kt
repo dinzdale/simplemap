@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -131,6 +132,7 @@ class MainMapFragment : Fragment() {
     }
 
 
+    @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
     @InternalCoroutinesApi
     @Composable
     fun BuildUI() {
@@ -143,24 +145,33 @@ class MainMapFragment : Fragment() {
     fun TopBar() {
         val expanded = remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
+        val enteredLocation = remember{ mutableStateOf("")}
         TopAppBar(Modifier
             .background(Color.Red)
             .wrapContentSize()) {
             Box(Modifier
                 .fillMaxSize()
                 .wrapContentSize(Alignment.CenterEnd)) {
-                Text(modifier = Modifier
-                    .clickable { expanded.value = true }
-                    .padding(end = 10.dp), text = "Options")
-                DropdownMenu(modifier = Modifier.background(Color.White), expanded = expanded.value,
-                    onDismissRequest = { expanded.value = false }) {
-                    DropdownMenuItem(onClick = { }) {
-                        DropDownItem(text = "show one POI info window",
-                            getInfoViewSetting.collectAsState(
-                                initial = null).value) {
-                            scope.launch {
-                                infoWindowShowAll(it)
-                                expanded.value = false
+                Row() {
+                    TextField(enteredLocation.value, { value->
+                      enteredLocation.value = value
+                    }, placeholder = {
+                        Text("enter new location")
+                    })
+                    Text(modifier = Modifier
+                        .clickable { expanded.value = true }
+                        .padding(end = 10.dp), text = "Options")
+                    DropdownMenu(modifier = Modifier.background(Color.White),
+                        expanded = expanded.value,
+                        onDismissRequest = { expanded.value = false }) {
+                        DropdownMenuItem(onClick = { }) {
+                            DropDownItem(text = "show one POI info window",
+                                getInfoViewSetting.collectAsState(
+                                    initial = null).value) {
+                                scope.launch {
+                                    infoWindowShowAll(it)
+                                    expanded.value = false
+                                }
                             }
                         }
                     }
@@ -168,6 +179,7 @@ class MainMapFragment : Fragment() {
             }
         }
     }
+
 
     @Composable
     fun DropDownItem(text: String, showChecked: Boolean? = getInfoViewSetting.collectAsState(
