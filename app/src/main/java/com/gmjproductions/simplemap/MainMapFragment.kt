@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -25,10 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -56,7 +56,6 @@ import kotlinx.coroutines.channels.trySendBlocking
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
 import org.osmdroid.events.MapAdapter
 import org.osmdroid.events.ScrollEvent
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.constants.GeoConstants
 import org.osmdroid.views.CustomZoomButtonsController
@@ -65,11 +64,11 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow
 import java.util.*
 import kotlinx.coroutines.flow.*
-import androidx.datastore.core.*
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.gmjacobs.productions.openchargemap.model.GeocodeViewModel
+import com.gmjacobs.productions.openchargemap.model.geocode.ForwardGeocodeResponse
+import com.gmjacobs.productions.openchargemap.model.geocode.GeocodeForwardResponseItem
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -93,6 +92,7 @@ class MainMapFragment : Fragment() {
             requireActivity().application
         )
     }
+    private val geocodeViewModel by activityViewModels<GeocodeViewModel>()
 
     val getInfoViewSetting: Flow<Boolean> by lazy {
         requireContext().dataStoree.data.map { preferences ->
@@ -137,47 +137,89 @@ class MainMapFragment : Fragment() {
     @Composable
     fun BuildUI() {
         val scaffoldState = rememberScaffoldState()
-        Scaffold(scaffoldState = scaffoldState, content = { MapContent() }, topBar = { TopBar() },
+        Scaffold(scaffoldState = scaffoldState, content = { MapContent() }, topBar = {
+            TopBar()
+            GetLocations()
+        },
             bottomBar = { showSnackBarMessage(uiViewModel = uiViewModel) })
     }
 
     @Composable
     fun TopBar() {
+        val enteredLocation = remember { mutableStateOf("") }
+        TopAppBar(
+            Modifier
+                .background(Color.Red)
+                .wrapContentSize()) {
+            Row {
+                LocationEntry()
+                OptionMenu()
+            }
+        }
+    }
+
+    @Composable
+    fun OptionMenu() {
         val expanded = remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
-        val enteredLocation = remember{ mutableStateOf("")}
-        TopAppBar(Modifier
-            .background(Color.Red)
-            .wrapContentSize()) {
-            Box(Modifier
-                .fillMaxSize()
-                .wrapContentSize(Alignment.CenterEnd)) {
-                Row() {
-                    TextField(enteredLocation.value, { value->
-                      enteredLocation.value = value
-                    }, placeholder = {
-                        Text("enter new location")
-                    })
-                    Text(modifier = Modifier
-                        .clickable { expanded.value = true }
-                        .padding(end = 10.dp), text = "Options")
-                    DropdownMenu(modifier = Modifier.background(Color.White),
-                        expanded = expanded.value,
-                        onDismissRequest = { expanded.value = false }) {
-                        DropdownMenuItem(onClick = { }) {
-                            DropDownItem(text = "show one POI info window",
-                                getInfoViewSetting.collectAsState(
-                                    initial = null).value) {
-                                scope.launch {
-                                    infoWindowShowAll(it)
-                                    expanded.value = false
-                                }
-                            }
-                        }
+        Box(modifier = Modifier
+            .fillMaxHeight()
+            .fillMaxSize()
+            .background(Color.White), contentAlignment = Alignment.Center) {
+            Text(modifier = Modifier
+                .background(Color.White)
+                .clickable { expanded.value = true }
+                .wrapContentSize(), text = "Options",
+                color = Color.Black)
+        }
+        DropdownMenu(modifier = Modifier.background(Color.White),
+            expanded = expanded.value,
+            offset = DpOffset(x = 100.dp, 0.dp),
+            onDismissRequest = { expanded.value = false }) {
+            DropdownMenuItem(onClick = { }) {
+                DropDownItem(text = "show one POI info window",
+                    getInfoViewSetting.collectAsState(
+                        initial = null).value) {
+                    scope.launch {
+                        infoWindowShowAll(it)
+                        expanded.value = false
                     }
                 }
             }
         }
+    }
+
+    @Composable
+    fun LocationEntry() {
+        val entry = remember { mutableStateOf("") }
+        TextField(value = entry.value,
+            placeholder = {
+                Text("Enter location")
+            }, onValueChange = {
+                entry.value = it
+                uiViewModel.updateLocationEntry(it)
+            },
+            colors = TextFieldDefaults.textFieldColors(Color.Black, backgroundColor = Color.White),
+            modifier = Modifier
+                .wrapContentSize(), singleLine = true)
+    }
+
+    @Composable
+    fun GetLocations(
+        entry: String? = uiViewModel.locationEntry.debounce(500).collectAsState(null).value) {
+         Log.d("GetLocations","entry: ${entry}")
+        entry?.also {
+            if (it.isNotEmpty()) {
+                val result = geocodeViewModel.geocodeForward(entry).observeAsState().value
+                result?.onSuccess { list ->
+                    Log.d("GetLocations", " entry: $entry, found ${list.size} items")
+                }
+                result?.onFailure {
+                    Log.d("GetLocations", it.message, it)
+                }
+            }
+        }
+
     }
 
 
