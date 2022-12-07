@@ -222,19 +222,26 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun GetGeocodeForward(userEntry: String = uiViewModel.searchEntry.value) {
-
-        val responseState by geocodeViewModel.forwardResponse.collectAsState(null)
-
+        val cnt = remember { mutableStateOf(0) }
+        val responseState by geocodeViewModel.forwardResponse.observeAsState(null)
+        val result = remember{ mutableStateOf(emptyList<GeocodeForwardResponseItem>())}
         LaunchedEffect(userEntry) {
+            Log.d("GetGeocodeForward", "composition no ${++cnt.value} list?: ${responseState?.isSuccess?: " is null"}")
             geocodeViewModel.geocodeForward(userEntry)
         }
-        responseState?.value?.onSuccess { list ->
+        responseState?.onSuccess { list ->
             Log.d("GetGeocodeForward", "number of items: ${list.size}")
+            result.value = list
         }
-        responseState?.value?.onFailure {
+        responseState?.onFailure {
             Log.d("GetGeocodeForward", "error", it)
         }
-
+        LaunchedEffect(result.value) {
+            Log.d("GetGeocodeForward", "saved list ${result.value.size}")
+            result.value.forEachIndexed { index, item->
+                Log.d("GetGeocodeForward","(${index}) ${item.displayName}")
+            }
+        }
     }
 
 
