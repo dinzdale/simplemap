@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.node.Ref
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -69,6 +71,7 @@ import androidx.datastore.preferences.core.edit
 import com.gmjacobs.productions.openchargemap.model.GeocodeViewModel
 import com.gmjacobs.productions.openchargemap.model.geocode.ForwardGeocodeResponse
 import com.gmjacobs.productions.openchargemap.model.geocode.GeocodeForwardResponseItem
+import java.lang.RuntimeException
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -139,7 +142,6 @@ class MainMapFragment : Fragment() {
         val scaffoldState = rememberScaffoldState()
         Scaffold(scaffoldState = scaffoldState, content = { MapContent() }, topBar = {
             TopBar()
-            GetLocations()
         },
             bottomBar = { showSnackBarMessage(uiViewModel = uiViewModel) })
     }
@@ -153,7 +155,9 @@ class MainMapFragment : Fragment() {
                 .wrapContentSize()) {
             Row {
                 LocationEntry()
+                GetLocations()
                 OptionMenu()
+                GetGeocodeForward()
             }
         }
     }
@@ -205,19 +209,30 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun GetLocations(
-        entry: String? = uiViewModel.locationEntry.debounce(500).collectAsState(null).value) {
-         Log.d("GetLocations","entry: ${entry}")
-        entry?.also {
-            if (it.isNotEmpty()) {
-                val result = geocodeViewModel.geocodeForward(entry).observeAsState().value
-                result?.onSuccess { list ->
-                    Log.d("GetLocations", " entry: $entry, found ${list.size} items")
-                }
-                result?.onFailure {
-                    Log.d("GetLocations", it.message, it)
-                }
+    fun GetLocations() {
+        val entry by uiViewModel.userEntry.collectAsState("")
+        LaunchedEffect(entry) {
+            if (entry.isNotEmpty()) {
+                Log.d("GetLocations:", "update with $entry")
+                uiViewModel.searchEntry.value = entry
             }
+        }
+    }
+
+
+    @Composable
+    fun GetGeocodeForward(userEntry: String = uiViewModel.searchEntry.value) {
+
+        val responseState by geocodeViewModel.forwardResponse.collectAsState(null)
+
+        LaunchedEffect(userEntry) {
+            geocodeViewModel.geocodeForward(userEntry)
+        }
+        responseState?.value?.onSuccess { list ->
+            Log.d("GetGeocodeForward", "number of items: ${list.size}")
+        }
+        responseState?.value?.onFailure {
+            Log.d("GetGeocodeForward", "error", it)
         }
 
     }

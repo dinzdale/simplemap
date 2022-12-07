@@ -58,6 +58,7 @@ dependencies {
     implementation("androidx.compose.material:material:${rootProject.extra["compose_version"]}")
     implementation("androidx.compose.ui:ui-tooling:${rootProject.extra["compose_version"]}")
     implementation("androidx.compose.runtime:runtime:${rootProject.extra["compose_version"]}")
+    implementation ("androidx.compose.runtime:runtime-livedata:${rootProject.extra["compose_version"]}")
     implementation(
         "androidx.compose.runtime:runtime-livedata:${rootProject.extra["compose_version"]}")
     implementation("org.osmdroid:osmdroid-android:6.1.10")

@@ -8,17 +8,15 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.gmjacobs.productions.openchargemap.model.geocode.GeocodeResult
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.*
 
 class UIViewModel : ViewModel() {
     private val _showProgressBar = mutableStateOf(false)
     val showProgressBar = _showProgressBar
-
     private val _locationEntry = MutableStateFlow<String>("")
     val locationEntry = _locationEntry
+    val userEntry = locationEntry.debounce(1 * 1000)
+    val searchEntry = mutableStateOf("")
 
     private val _snackbarMessage = MutableLiveData("")
     val snackbarMessage: LiveData<String> = _snackbarMessage
