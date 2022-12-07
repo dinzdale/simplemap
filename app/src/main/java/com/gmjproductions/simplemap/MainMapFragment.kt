@@ -165,7 +165,9 @@ class MainMapFragment : Fragment() {
                     geocodeForwardItemsState.value = it
                     expandGeocodeForwardMenuState.value = it.isNotEmpty()
                 }
-                ShowLocationMenu(geocodeForwardItemsState, expandGeocodeForwardMenuState)
+                ShowLocationMenu(geocodeForwardItemsState, expandGeocodeForwardMenuState) {
+                    Log.d("TopAppBar","selected item: ${it.displayName}, lat:${it.lat}, lon:${it.lon}")
+                }
             }
         }
     }
@@ -218,11 +220,14 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun ShowLocationMenu(list: State<List<GeocodeForwardResponseItem>>,
-        expand: MutableState<Boolean>) {
+        expand: MutableState<Boolean>, selectedItem:(GeocodeForwardResponseItem)->Unit) {
         if (expand.value && list.value.isNotEmpty()) {
             DropdownMenu(expanded = expand.value, onDismissRequest = { expand.value = false }) {
                 list.value.forEachIndexed { index, geocodeForwardResponseItem ->
-                    DropdownMenuItem(onClick = { /*TODO*/ }) {
+                    DropdownMenuItem(onClick = {
+                        selectedItem(list.value[index])
+                        expand.value = false
+                    }) {
                         Row(Modifier.fillMaxSize()) {
                             Text(geocodeForwardResponseItem.displayName)
                         }
