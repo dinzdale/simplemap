@@ -140,14 +140,18 @@ class MainMapFragment : Fragment() {
     @Composable
     fun BuildUI() {
         val scaffoldState = rememberScaffoldState()
-        Scaffold(scaffoldState = scaffoldState, content = { MapContent() }, topBar = {
-            TopBar()
-        },
+        val centerMapState = remember { mutableStateOf(false) }
+        val userEnteredLocationState = remember { mutableStateOf<Location?>(null) }
+        Scaffold(scaffoldState = scaffoldState,
+            content = { MapContent(centerMapState, userEnteredLocationState) }, topBar = {
+                TopBar(centerMapState, userEnteredLocationState)
+            },
             bottomBar = { showSnackBarMessage(uiViewModel = uiViewModel) })
     }
 
     @Composable
-    fun TopBar() {
+    fun TopBar(centerMapState: MutableState<Boolean>,
+        userEnteredLocationState: MutableState<Location?>) {
         val enteredLocation = remember { mutableStateOf("") }
         val geocodeForwardItemsState =
             remember { mutableStateOf<List<GeocodeForwardResponseItem>>(emptyList()) }
@@ -166,7 +170,13 @@ class MainMapFragment : Fragment() {
                     expandGeocodeForwardMenuState.value = it.isNotEmpty()
                 }
                 ShowLocationMenu(geocodeForwardItemsState, expandGeocodeForwardMenuState) {
-                    Log.d("TopAppBar","selected item: ${it.displayName}, lat:${it.lat}, lon:${it.lon}")
+                    Log.d("TopAppBar",
+                        "selected item: ${it.displayName}, lat:${it.lat}, lon:${it.lon}")
+                    userEnteredLocationState.value = Location("").apply {
+                        latitude = it.lat.toDouble()
+                        longitude = it.lon.toDouble()
+                    }
+                    centerMapState.value = true
                 }
             }
         }
@@ -220,7 +230,7 @@ class MainMapFragment : Fragment() {
 
     @Composable
     fun ShowLocationMenu(list: State<List<GeocodeForwardResponseItem>>,
-        expand: MutableState<Boolean>, selectedItem:(GeocodeForwardResponseItem)->Unit) {
+        expand: MutableState<Boolean>, selectedItem: (GeocodeForwardResponseItem) -> Unit) {
         if (expand.value && list.value.isNotEmpty()) {
             DropdownMenu(expanded = expand.value, onDismissRequest = { expand.value = false }) {
                 list.value.forEachIndexed { index, geocodeForwardResponseItem ->
@@ -291,10 +301,8 @@ class MainMapFragment : Fragment() {
     }
 
     @Composable
-    fun MapContent() {
-        val centerMapState = remember {
-            mutableStateOf(false)
-        }
+    fun MapContent(centerMapState: MutableState<Boolean>, locationState: MutableState<Location?>) {
+
         ConstraintLayout {
             val (map, progress, zoomBtns, OSMCreds, currentLocation) = createRefs()
             AndroidView({
@@ -331,10 +339,12 @@ class MainMapFragment : Fragment() {
                 bottom.linkTo(parent.bottom, margin = 100.dp)
             }) {
                 centerMapState.value = true
+                locationState.value = null
                 mapView.controller.setZoom(10.0)
             }
         } // setup snackbar
-        CenterMap(centerMapState = centerMapState)
+
+        CenterMap(centerMapState = centerMapState, locationState)
         CheckLocationPermissions(centerMapState)
     }
 
@@ -414,10 +424,14 @@ class MainMapFragment : Fragment() {
     @Composable
     fun CenterMap(
         centerMapState: MutableState<Boolean>,
-        location: State<Location?> = getLastLocation().collectAsState(null)
-    ) {
+        locationState: MutableState<Location?>) {
+
+        locationState.value ?: apply {
+            locationState.value = getLastLocation().collectAsState(initial = null).value
+        }
+
         if (centerMapState.value) {
-            location.value?.also {
+            locationState.value?.also {
                 val startPoint = GeoPoint(it.latitude, it.longitude)
                 mapView.controller.setCenter(startPoint)
                 centerMapState.value = false
